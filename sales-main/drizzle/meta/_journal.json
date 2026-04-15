@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776170466776,
+      "tag": "0000_loose_layla_miller",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776171414677,
+      "tag": "0001_happy_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776171927305,
+      "tag": "0002_ambitious_galactus",
+      "breakpoints": true
+    }
+  ]
+}

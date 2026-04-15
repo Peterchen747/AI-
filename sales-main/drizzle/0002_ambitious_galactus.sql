@@ -1,0 +1,1 @@
+ALTER TABLE `weekly_costs` ADD `purchase_batch_id` integer REFERENCES purchase_batches(id);

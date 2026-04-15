@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:/AI 財務助手\" init)",
+      "Bash(git -C \"C:/AI 財務助手\" add -A)",
+      "Bash(git -C \"C:/AI 財務助手\" status --short)"
+    ]
+  }
+}

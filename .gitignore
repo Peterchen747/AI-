@@ -1,0 +1,17 @@
+# Node.js
+sales-main/node_modules/
+sales-main/.next/
+
+# SQLite 資料庫（含敏感資料）
+sales-main/*.db
+
+# 環境變數
+sales-main/.env*
+sales-main/.env.local
+
+# Word 暫存檔
+~$*.docx
+
+# OS
+.DS_Store
+Thumbs.db
