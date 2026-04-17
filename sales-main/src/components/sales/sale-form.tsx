@@ -460,6 +460,8 @@ export function SaleForm({ categories }: { categories: Category[] }) {
                   purchaseBatches={purchaseBatches}
                   purchaseBatchId={purchaseBatchId}
                   onSelectPurchaseBatch={onSelectPurchaseBatch}
+                  qty={qty}
+                  setQty={setQty}
                   cost={cost}
                   setCost={setCost}
                   actualPrice={actualPrice}
