@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,20 @@ type State = "idle" | "loading" | "sent" | "error";
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [state, setState] = useState<State>("idle");
   const [email, setEmail] = useState("");
+  const { data: session, update } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state !== "sent") return;
+    const id = setInterval(() => update(), 3000);
+    return () => clearInterval(id);
+  }, [state, update]);
+
+  useEffect(() => {
+    if (state === "sent" && session?.user) {
+      router.push(callbackUrl);
+    }
+  }, [session, state, callbackUrl, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +60,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 點擊信件中的連結即可登入，連結 10 分鐘內有效。
+              </p>
+              <p className="text-sm text-muted-foreground">
+                點擊連結後，此頁面會自動跳轉，不需要切換視窗。
               </p>
               <Button
                 variant="outline"
