@@ -109,7 +109,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
     <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
       <div>
         <Label>週次</Label>
-        <Select value={weekLabel} onValueChange={setWeekLabel}>
+        <Select value={weekLabel} onValueChange={(v) => v && setWeekLabel(v)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>

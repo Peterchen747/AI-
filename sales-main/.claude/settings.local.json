@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Read(//c/AI 財務助手/docs/**)",
-      "Read(//c/AI 財務助手/**)"
+      "Read(//c/AI 財務助手/**)",
+      "Bash(npx tsc *)",
+      "Bash(node seed.mjs)",
+      "Bash(npm install *)"
     ]
   }
 }
