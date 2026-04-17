@@ -2,26 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Sidebar } from "./sidebar";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  sidebar,
+}: {
+  children: React.ReactNode;
+  sidebar: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isPublicShare = pathname?.startsWith("/share/") && pathname.split("/").length >= 3;
+  const isLogin = pathname === "/login";
 
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  if (isPublicShare) {
+  if (isPublicShare || isLogin) {
     return <main className="min-h-screen overflow-auto">{children}</main>;
   }
 
   return (
     <>
-      <div className="hidden md:flex md:shrink-0">
-        <Sidebar />
-      </div>
+      <div className="hidden md:flex md:shrink-0">{sidebar}</div>
 
       {mobileNavOpen && (
         <div
@@ -35,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Sidebar />
+        {sidebar}
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">

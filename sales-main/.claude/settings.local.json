@@ -5,7 +5,10 @@
       "Read(//c/AI 財務助手/**)",
       "Bash(npx tsc *)",
       "Bash(node seed.mjs)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(cat drizzle.config.ts)",
+      "Bash(cat drizzle.config.js)"
     ]
   }
 }

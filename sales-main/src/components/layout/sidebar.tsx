@@ -1,23 +1,13 @@
-﻿"use client";
+import { auth, signOut } from "@/auth";
+import { SidebarNav } from "./sidebar-nav";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+export async function Sidebar() {
+  const session = await auth();
 
-const navItems = [
-  { href: "/dashboard", label: "儀表板", icon: "📊" },
-  { href: "/categories", label: "商品分類", icon: "🗂️" },
-  { href: "/inventory", label: "入庫存紀錄", icon: "📦" },
-  { href: "/purchase-batches", label: "進貨管理", icon: "📦" },
-  { href: "/sales", label: "銷售紀錄", icon: "🧾" },
-  { href: "/sales/new?tab=batch", label: "批次建單", icon: "🖼️" },
-  { href: "/weekly-costs", label: "每週成本", icon: "💰" },
-  { href: "/alerts", label: "警示中心", icon: "🚨" },
-  { href: "/share", label: "分享", icon: "🔗" },
-];
-
-export function Sidebar() {
-  const pathname = usePathname();
+  async function logout() {
+    "use server";
+    await signOut({ redirectTo: "/login" });
+  }
 
   return (
     <aside className="w-56 shrink-0 border-r bg-card flex flex-col">
@@ -25,28 +15,23 @@ export function Sidebar() {
         <h1 className="text-lg font-bold">成本計算系統</h1>
         <p className="text-xs text-muted-foreground">管理銷售與入庫成本</p>
       </div>
-      <nav className="flex-1 p-2 space-y-1">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="p-4 border-t text-xs text-muted-foreground">NT$ 單位</div>
+      <SidebarNav />
+      <div className="p-3 border-t space-y-2">
+        {session?.user?.email && (
+          <div className="text-xs text-muted-foreground truncate">
+            {session.user.email}
+          </div>
+        )}
+        <form action={logout}>
+          <button
+            type="submit"
+            className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
+            🚪 登出
+          </button>
+        </form>
+        <div className="text-xs text-muted-foreground">NT$ 單位</div>
+      </div>
     </aside>
   );
 }
