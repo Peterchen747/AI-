@@ -5,6 +5,7 @@ import {
   getCategoryPerformance,
   getGuidance,
 } from "@/lib/calculations";
+import { ensureSchema } from "@/db/ensure-schema";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { TopCategoriesChart } from "@/components/dashboard/top-categories";
@@ -34,6 +35,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
+  await ensureSchema();
   const params = await searchParams;
   const defaultMonth = currentYearMonth(0);
   const selectedMonth = params.month && /^\d{4}-\d{2}$/.test(params.month)
