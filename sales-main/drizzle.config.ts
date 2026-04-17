@@ -5,6 +5,7 @@ export default {
   out: "./drizzle",
   dialect: "turso",
   dbCredentials: {
-    url: "file:./sales-tracker.db",
+    url: process.env.TURSO_CONNECTION_URL ?? "file:./sales-tracker.db",
+    authToken: process.env.TURSO_AUTH_TOKEN,
   },
 } satisfies Config;

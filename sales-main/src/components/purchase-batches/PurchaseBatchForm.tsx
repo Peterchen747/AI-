@@ -244,11 +244,12 @@ export function PurchaseBatchForm({ onSuccess }: Props) {
           type="date"
           value={purchaseDate}
           onChange={(e) => setPurchaseDate(e.target.value)}
+          className="h-11"
         />
       </div>
 
       {/* 數量 + 金額 */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label>進貨數量 *</Label>
           <Input
@@ -258,6 +259,7 @@ export function PurchaseBatchForm({ onSuccess }: Props) {
             value={purchaseQty}
             onChange={(e) => setPurchaseQty(e.target.value)}
             placeholder="例如：10"
+            className="h-11"
           />
         </div>
         <div>
@@ -269,6 +271,7 @@ export function PurchaseBatchForm({ onSuccess }: Props) {
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
             placeholder="例如：2000"
+            className="h-11"
           />
         </div>
       </div>
@@ -294,7 +297,7 @@ export function PurchaseBatchForm({ onSuccess }: Props) {
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving} className="w-full md:w-auto">
           {saving ? "儲存中..." : "新增進貨紀錄"}
         </Button>
       </div>

@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatNTD } from "@/lib/utils";
 import type { MonthlySummary } from "@/lib/calculations";
 
@@ -22,62 +26,126 @@ export function SummaryCards({
   current: MonthlySummary;
   previous: MonthlySummary;
 }) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function downloadPdf() {
+    const [year, month] = current.month.split("-");
+    setPdfLoading(true);
+    try {
+      const res = await fetch(`/api/report/${year}/${month}`);
+      if (!res.ok) throw new Error("PDF 產生失敗");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report-${year}-${month}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent — user can retry
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-normal">
-            本月營收
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatNTD(current.revenue)}</div>
-          {deltaBadge(current.revenue, previous.revenue)}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-normal">
-            本月成本
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatNTD(current.cost)}</div>
-          {deltaBadge(current.cost, previous.cost)}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-normal">
-            本月利潤
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={`text-2xl font-bold ${
-              current.profit >= 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {formatNTD(current.profit)}
-          </div>
-          {deltaBadge(current.profit, previous.profit)}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-normal">
-            毛利率
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {current.margin.toFixed(1)}%
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            共 {current.count} 筆交易
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月營收
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNTD(current.revenue)}</div>
+            {deltaBadge(current.revenue, previous.revenue)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月成本
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNTD(current.cost)}</div>
+            {deltaBadge(current.cost, previous.cost)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月毛利
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                current.profit >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {formatNTD(current.profit)}
+            </div>
+            {deltaBadge(current.profit, previous.profit)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              毛利率
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {current.margin.toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              共 {current.count} 筆交易
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月淨利
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                current.netProfit < 0 ? "text-red-500" : "text-emerald-600"
+              }`}
+            >
+              {formatNTD(current.netProfit)}
+            </div>
+            {deltaBadge(current.netProfit, previous.netProfit)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              淨利率
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {current.netProfitRate.toFixed(1)}%
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={downloadPdf}
+          disabled={pdfLoading}
+        >
+          {pdfLoading ? "產生中..." : "匯出本月 PDF"}
+        </Button>
+      </div>
     </div>
   );
 }

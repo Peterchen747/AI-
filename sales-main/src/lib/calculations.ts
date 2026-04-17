@@ -1,5 +1,6 @@
 import { db, schema } from "@/db";
-import { eq, gte, lt, and, sql } from "drizzle-orm";
+import { eq, gte, lt, and, like, sql } from "drizzle-orm";
+import { getWeekDateRange } from "@/lib/week-utils";
 
 export type MonthlySummary = {
   month: string;
@@ -8,6 +9,9 @@ export type MonthlySummary = {
   profit: number;
   margin: number;
   count: number;
+  weeklyCostsTotal: number;
+  netProfit: number;
+  netProfitRate: number;
 };
 
 function monthRange(yearMonth: string): [string, string] {
@@ -26,6 +30,29 @@ export function currentYearMonth(offset = 0): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * 查詢某年份所有 weekly_costs，過濾出「週四落在 yearMonth 月份」的週次並加總。
+ * 以週四判斷歸屬月份是 ISO 週的標準做法，確保每一週只計入一個月。
+ */
+async function getMonthlyWeeklyCostsTotal(yearMonth: string): Promise<number> {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const rows = await db
+    .select({ weekLabel: schema.weeklyCosts.weekLabel, totalCost: schema.weeklyCosts.totalCost })
+    .from(schema.weeklyCosts)
+    .where(like(schema.weeklyCosts.weekLabel, `${y}-W%`));
+
+  return rows
+    .filter((row) => {
+      const range = getWeekDateRange(row.weekLabel);
+      if (!range) return false;
+      // 週四 = 週一 + 3 天
+      const thursday = new Date(range.start);
+      thursday.setUTCDate(thursday.getUTCDate() + 3);
+      return thursday.getUTCFullYear() === y && thursday.getUTCMonth() + 1 === m;
+    })
+    .reduce((sum, row) => sum + (row.totalCost ?? 0), 0);
+}
+
 export async function getMonthlySummary(
   yearMonth: string
 ): Promise<MonthlySummary> {
@@ -34,17 +61,33 @@ export async function getMonthlySummary(
     .select({
       cost: schema.sales.cost,
       actualPrice: schema.sales.actualPrice,
+      qty: schema.sales.qty,
     })
     .from(schema.sales)
     .where(
       and(gte(schema.sales.saleDate, start), lt(schema.sales.saleDate, end))
     );
 
-  const revenue = rows.reduce((s, r) => s + r.actualPrice, 0);
-  const cost = rows.reduce((s, r) => s + r.cost, 0);
+  const revenue = rows.reduce((s, r) => s + r.actualPrice * r.qty, 0);
+  const cost = rows.reduce((s, r) => s + r.cost * r.qty, 0);
   const profit = revenue - cost;
   const margin = revenue === 0 ? 0 : (profit / revenue) * 100;
-  return { month: yearMonth, revenue, cost, profit, margin, count: rows.length };
+
+  const weeklyCostsTotal = await getMonthlyWeeklyCostsTotal(yearMonth);
+  const netProfit = profit - weeklyCostsTotal;
+  const netProfitRate = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+  return {
+    month: yearMonth,
+    revenue,
+    cost,
+    profit,
+    margin,
+    count: rows.length,
+    weeklyCostsTotal,
+    netProfit,
+    netProfitRate,
+  };
 }
 
 export async function getLastNMonthsSummary(
@@ -85,6 +128,7 @@ export async function getCategoryPerformance(
       categoryName: schema.categories.name,
       cost: schema.sales.cost,
       actualPrice: schema.sales.actualPrice,
+      qty: schema.sales.qty,
     })
     .from(schema.sales)
     .innerJoin(schema.items, eq(schema.sales.itemId, schema.items.id))
@@ -110,8 +154,8 @@ export async function getCategoryPerformance(
         margin: 0,
       };
     existing.count++;
-    existing.revenue += r.actualPrice;
-    existing.cost += r.cost;
+    existing.revenue += r.actualPrice * r.qty;
+    existing.cost += r.cost * r.qty;
     existing.profit = existing.revenue - existing.cost;
     existing.margin =
       existing.revenue === 0

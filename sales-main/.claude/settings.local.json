@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/AI 財務助手/docs/**)",
+      "Read(//c/AI 財務助手/**)"
+    ]
+  }
+}

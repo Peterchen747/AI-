@@ -1,33 +1,56 @@
-# 成本優先工作規範
+# CLAUDE.md
 
-## 核心原則
-- **預設本地模型**：qwen2.5-coder:7b（日常 coding 主力）
-- **官方 Claude**：當我明確說「用官方」時才切換
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 工作流程
-1. Claude（官方）負責：需求分析、架構設計、骨架 + TODO 註解
-2. 本地模型負責：按照骨架填入實作程式碼
-3. 分步實作 → 每次改 1-2 個檔案
-4. 自動跑 test/build，有問題主動提醒
+## 模型規範
 
-## 模型配置
 | 用途 | 模型 |
 |------|------|
-| 日常 coding 主力 | qwen2.5-coder:7b（本地） |
-| 官方高品質任務 | claude-sonnet-4-6 |
+| 日常 coding（填入實作、調樣式、改小功能） | qwen2.5-coder:7b（本地） |
+| 架構設計、複雜 debug、正式交付前總檢 | claude-sonnet-4-6（官方） |
 
-## 切換方式
-- 日常啟動：`claude-local`
-- 官方模式：`claude-pro`
-- 對話中切換：`/model qwen2.5-coder:7b` 或 `/model claude-sonnet-4-6`
+**預設用本地模型；只有我明確說「用官方」時才切換。**
 
-## 使用本地模型的情境
-- 按照架構填入程式碼
-- 補全樣板、調整 CSS、改小功能
-- 重複性高的實作任務
+工作流程：官方負責需求分析 + 骨架 + TODO 註解 → 本地模型填入實作 → 每次改 1-2 個檔案 → 自動跑 test/build。
 
-## 使用官方 Claude 的情境
-- 需求分析與架構設計
-- 複雜 debug 或重大 refactor
-- 正式交付前總檢
-- 本地模型品質明顯不足時
+---
+
+## 專案簡介
+
+**AI 財務助手**：幫透過 LINE/IG 賣飾品的小賣家，追蹤銷售收入與隱藏成本，算出真正的每月淨利。
+
+程式碼在 `sales-main/`，單一使用者、本地 SQLite 資料庫、無登入機制。
+
+**目前狀態（MVP）：** 銷售記錄、分類管理、毛利計算已完成；**P0 待做：** 批次進貨成本 + 每週廣告/運費整合進淨利計算。
+
+---
+
+## 細節文件
+
+- [開發指令](docs/commands.md) — dev、build、test、migration
+- [技術細節](docs/tech-stack.md) — 前端、後端、元件架構
+- [資料庫](docs/database.md) — Schema、資料表關聯、整合狀態
+- [Claude 任務指令（4.4 起）](docs/tasks-claude.md) — 給官方模型的精簡任務格式
+
+---
+
+## 通用禁止清單（所有任務適用，不在任務裡重複）
+
+### API Route
+
+- `db` 從 `@/db` import，**不是** `@/db/schema`
+- 錯誤回應用 `NextResponse.json({ error: "..." }, { status: NNN })`，不要 `NextResponse.error(...)`
+- 每個 handler **第一行**必須 `await ensureSchema()`
+- 動態路由 ID 從 `{ params }` 取得，不要 `request.url.split('/')`
+
+### Client Component
+
+- `"use client"` 在檔案第一行（有 useState / useEffect 必加）
+- Toast 通知用 `toast` from `"sonner"`，不要 `alert()`
+- shadcn/ui 元件從 `@/components/ui/...` import，**不要重新安裝套件**
+- 表單驗證統一用 react-hook-form
+
+### 通用
+
+- 不要發明不存在的 schema 名稱（現有 table 見 `docs/database.md`）
+- 不要動未被任務指定修改的檔案

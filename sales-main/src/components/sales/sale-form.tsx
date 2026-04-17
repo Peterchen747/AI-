@@ -399,9 +399,9 @@ export function SaleForm({ categories }: { categories: Category[] }) {
             )}
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
-            <Button type="submit" disabled={singleSaving}>{singleSaving ? "儲存中..." : "儲存銷售紀錄"}</Button>
+          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+            <Button type="button" variant="outline" className="w-full md:w-auto" onClick={() => router.back()}>取消</Button>
+            <Button type="submit" disabled={singleSaving} className="w-full md:w-auto">{singleSaving ? "儲存中..." : "儲存銷售紀錄"}</Button>
           </div>
         </form>
       </TabsContent>
@@ -558,35 +558,37 @@ function CommonFields(props: {
         </Select>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label>數量 *</Label>
           <Input
             type="number"
+            inputMode="numeric"
             min="1"
             step="1"
             value={props.qty}
             onChange={(e) => props.setQty(e.target.value)}
+            className="h-11"
           />
         </div>
         <div>
           <Label>成本/件 (NT$) *</Label>
-          <Input type="number" value={props.cost} onChange={(e) => props.setCost(e.target.value)} />
+          <Input type="number" inputMode="numeric" value={props.cost} onChange={(e) => props.setCost(e.target.value)} className="h-11" />
         </div>
         <div>
           <Label>售價/件 (NT$) *</Label>
-          <Input type="number" value={props.actualPrice} onChange={(e) => props.setActualPrice(e.target.value)} />
+          <Input type="number" inputMode="numeric" value={props.actualPrice} onChange={(e) => props.setActualPrice(e.target.value)} className="h-11" />
         </div>
       </div>
 
       <div>
         <Label>銷售日期 *</Label>
-        <Input type="date" value={props.saleDate} onChange={(e) => props.setSaleDate(e.target.value)} />
+        <Input type="date" value={props.saleDate} onChange={(e) => props.setSaleDate(e.target.value)} className="h-11" />
       </div>
 
       <div>
         <Label>客戶名稱（寫入備註）</Label>
-        <Input value={props.customerName} onChange={(e) => props.setCustomerName(e.target.value)} placeholder="例如：王小明" />
+        <Input value={props.customerName} onChange={(e) => props.setCustomerName(e.target.value)} placeholder="例如：王小明" className="h-11" />
       </div>
 
       <div>

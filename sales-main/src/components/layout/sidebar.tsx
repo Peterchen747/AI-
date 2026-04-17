@@ -11,6 +11,8 @@ const navItems = [
   { href: "/purchase-batches", label: "進貨管理", icon: "📦" },
   { href: "/sales", label: "銷售紀錄", icon: "🧾" },
   { href: "/sales/new?tab=batch", label: "批次建單", icon: "🖼️" },
+  { href: "/weekly-costs", label: "每週成本", icon: "💰" },
+  { href: "/alerts", label: "警示中心", icon: "🚨" },
   { href: "/share", label: "分享", icon: "🔗" },
 ];
 
