@@ -10,6 +10,7 @@ import {
 } from "@react-pdf/renderer";
 import { getMonthlySummary } from "@/lib/calculations";
 import { ensureSchema } from "@/db/ensure-schema";
+import { auth } from "@/auth";
 
 const styles = StyleSheet.create({
   page: { padding: 48, fontFamily: "Helvetica" },
@@ -33,9 +34,13 @@ export async function GET(
   { params }: { params: Promise<{ year: string; month: string }> }
 ) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
   const { year, month } = await params;
 
-  const summary = await getMonthlySummary(`${year}-${month}`);
+  const summary = await getMonthlySummary(`${year}-${month}`, session.user.id);
 
   const kpiItems: [string, string, boolean?][] = [
     ["Revenue", `NT$ ${summary.revenue.toLocaleString()}`],

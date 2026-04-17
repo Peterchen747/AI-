@@ -6,6 +6,8 @@ import {
   getGuidance,
 } from "@/lib/calculations";
 import { ensureSchema } from "@/db/ensure-schema";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { TopCategoriesChart } from "@/components/dashboard/top-categories";
@@ -36,6 +38,9 @@ export default async function DashboardPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
   const params = await searchParams;
   const defaultMonth = currentYearMonth(0);
   const selectedMonth = params.month && /^\d{4}-\d{2}$/.test(params.month)
@@ -45,11 +50,11 @@ export default async function DashboardPage({
   const monthRange = monthBounds(selectedMonth);
 
   const [current, previous, trend, categoryPerf, guidance] = await Promise.all([
-    getMonthlySummary(selectedMonth),
-    getMonthlySummary(prevMonth),
-    getLastNMonthsSummary(6),
-    getCategoryPerformance(selectedMonth),
-    getGuidance(),
+    getMonthlySummary(selectedMonth, userId),
+    getMonthlySummary(prevMonth, userId),
+    getLastNMonthsSummary(6, userId),
+    getCategoryPerformance(selectedMonth, userId),
+    getGuidance(userId),
   ]);
 
   return (

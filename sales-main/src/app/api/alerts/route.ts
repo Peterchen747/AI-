@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, gte, inArray, like, lt, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
 import { currentYearMonth } from "@/lib/calculations";
 import { getWeekDateRange } from "@/lib/week-utils";
+import { auth } from "@/auth";
 
 type Alert = {
   type: string;
@@ -14,6 +15,10 @@ type Alert = {
 
 export async function GET(_request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const alerts: Alert[] = [];
 
   const yearMonth = currentYearMonth();
@@ -24,12 +29,12 @@ export async function GET(_request: NextRequest) {
       ? `${y + 1}-01-01`
       : `${y}-${String(m + 1).padStart(2, "0")}-01`;
 
-  // Fetch current month sales
   const salesRows = await db
     .select({ actualPrice: schema.sales.actualPrice, qty: schema.sales.qty })
     .from(schema.sales)
     .where(
       and(
+        eq(schema.sales.userId, userId),
         gte(schema.sales.saleDate, monthStart),
         lt(schema.sales.saleDate, nextMonthStart)
       )
@@ -37,16 +42,14 @@ export async function GET(_request: NextRequest) {
 
   const revenue = salesRows.reduce((s, r) => s + r.actualPrice * r.qty, 0);
 
-  // Fetch all weeklyCosts for this year (reused for alerts 1 and 3)
   const weeklyCostRows = await db
     .select({
       weekLabel: schema.weeklyCosts.weekLabel,
       adCost: schema.weeklyCosts.adCost,
     })
     .from(schema.weeklyCosts)
-    .where(like(schema.weeklyCosts.weekLabel, `${y}-W%`));
+    .where(and(eq(schema.weeklyCosts.userId, userId), like(schema.weeklyCosts.weekLabel, `${y}-W%`)));
 
-  // Filter to weeks whose Thursday falls in current month (ISO standard)
   const thisMonthWeeklyCosts = weeklyCostRows.filter((row) => {
     const range = getWeekDateRange(row.weekLabel);
     if (!range) return false;
@@ -79,14 +82,14 @@ export async function GET(_request: NextRequest) {
       itemId: schema.purchaseBatches.itemId,
     })
     .from(schema.purchaseBatches)
-    .where(lte(schema.purchaseBatches.remainingQty, 3));
+    .where(and(eq(schema.purchaseBatches.userId, userId), lte(schema.purchaseBatches.remainingQty, 3)));
 
   if (lowBatches.length > 0) {
     const itemIds = [...new Set(lowBatches.map((b) => b.itemId))];
     const itemRows = await db
       .select({ id: schema.items.id, name: schema.items.name })
       .from(schema.items)
-      .where(inArray(schema.items.id, itemIds));
+      .where(and(eq(schema.items.userId, userId), inArray(schema.items.id, itemIds)));
 
     const itemMap = new Map(itemRows.map((i) => [i.id, i.name]));
     const itemNames = lowBatches
@@ -118,6 +121,7 @@ export async function GET(_request: NextRequest) {
   const latestSale = await db
     .select({ saleDate: schema.sales.saleDate })
     .from(schema.sales)
+    .where(eq(schema.sales.userId, userId))
     .orderBy(desc(schema.sales.saleDate))
     .limit(1);
 

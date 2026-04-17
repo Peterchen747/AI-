@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, desc, eq, gte, like, lte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
+import { auth } from "@/auth";
 
 function isValidDateString(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -30,8 +31,11 @@ function parseNonNegativeInt(value: unknown): number | null {
 
 export async function GET(request: NextRequest) {
   await ensureSchema();
-  const { searchParams } = new URL(request.url);
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
+  const { searchParams } = new URL(request.url);
   const month = searchParams.get("month");
   const itemId = searchParams.get("itemId");
   const categoryId = searchParams.get("categoryId");
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
   const includeInactive = searchParams.get("includeInactive") === "1";
   const q = searchParams.get("q");
 
-  const filters = [];
+  const filters = [eq(schema.inventoryRecords.userId, userId)];
 
   if (!includeInactive) {
     filters.push(eq(schema.inventoryRecords.isActive, 1));
@@ -97,7 +101,7 @@ export async function GET(request: NextRequest) {
     .from(schema.inventoryRecords)
     .innerJoin(schema.items, eq(schema.inventoryRecords.itemId, schema.items.id))
     .leftJoin(schema.categories, eq(schema.items.categoryId, schema.categories.id))
-    .where(filters.length ? and(...filters) : undefined)
+    .where(and(...filters))
     .orderBy(desc(schema.inventoryRecords.stockDate), desc(schema.inventoryRecords.id));
 
   return NextResponse.json(rows);
@@ -105,6 +109,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -126,13 +134,14 @@ export async function POST(request: NextRequest) {
   const [item] = await db
     .select({ id: schema.items.id })
     .from(schema.items)
-    .where(eq(schema.items.id, itemId))
+    .where(and(eq(schema.items.id, itemId), eq(schema.items.userId, userId)))
     .limit(1);
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
   const [inserted] = await db
     .insert(schema.inventoryRecords)
     .values({
+      userId,
       itemId,
       unitCost,
       quantity,
@@ -148,6 +157,10 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
   if (!id || Number.isNaN(id) || id <= 0) {
@@ -164,7 +177,7 @@ export async function PATCH(request: NextRequest) {
   const [existing] = await db
     .select()
     .from(schema.inventoryRecords)
-    .where(eq(schema.inventoryRecords.id, id))
+    .where(and(eq(schema.inventoryRecords.id, id), eq(schema.inventoryRecords.userId, userId)))
     .limit(1);
   if (!existing) {
     return NextResponse.json({ error: "Inventory record not found" }, { status: 404 });
@@ -215,7 +228,7 @@ export async function PATCH(request: NextRequest) {
   const [updated] = await db
     .update(schema.inventoryRecords)
     .set(patch)
-    .where(eq(schema.inventoryRecords.id, id))
+    .where(and(eq(schema.inventoryRecords.id, id), eq(schema.inventoryRecords.userId, userId)))
     .returning();
 
   return NextResponse.json(updated);
@@ -223,6 +236,10 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
   if (!id || Number.isNaN(id) || id <= 0) {
@@ -232,7 +249,7 @@ export async function DELETE(request: NextRequest) {
   const [existing] = await db
     .select()
     .from(schema.inventoryRecords)
-    .where(eq(schema.inventoryRecords.id, id))
+    .where(and(eq(schema.inventoryRecords.id, id), eq(schema.inventoryRecords.userId, userId)))
     .limit(1);
   if (!existing) {
     return NextResponse.json({ error: "Inventory record not found" }, { status: 404 });
@@ -241,18 +258,18 @@ export async function DELETE(request: NextRequest) {
   const [ref] = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.sales)
-    .where(eq(schema.sales.inventoryRecordId, id));
+    .where(and(eq(schema.sales.inventoryRecordId, id), eq(schema.sales.userId, userId)));
   const usedCount = Number(ref?.count ?? 0);
 
   if (usedCount === 0) {
-    await db.delete(schema.inventoryRecords).where(eq(schema.inventoryRecords.id, id));
+    await db.delete(schema.inventoryRecords).where(and(eq(schema.inventoryRecords.id, id), eq(schema.inventoryRecords.userId, userId)));
     return NextResponse.json({ ok: true, mode: "hard" });
   }
 
   await db
     .update(schema.inventoryRecords)
     .set({ isActive: 0 })
-    .where(eq(schema.inventoryRecords.id, id));
+    .where(and(eq(schema.inventoryRecords.id, id), eq(schema.inventoryRecords.userId, userId)));
   return NextResponse.json({ ok: true, mode: "soft" });
 }
 

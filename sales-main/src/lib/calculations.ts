@@ -34,12 +34,15 @@ export function currentYearMonth(offset = 0): string {
  * 查詢某年份所有 weekly_costs，過濾出「週四落在 yearMonth 月份」的週次並加總。
  * 以週四判斷歸屬月份是 ISO 週的標準做法，確保每一週只計入一個月。
  */
-async function getMonthlyWeeklyCostsTotal(yearMonth: string): Promise<number> {
+async function getMonthlyWeeklyCostsTotal(yearMonth: string, userId: string): Promise<number> {
   const [y, m] = yearMonth.split("-").map(Number);
   const rows = await db
     .select({ weekLabel: schema.weeklyCosts.weekLabel, totalCost: schema.weeklyCosts.totalCost })
     .from(schema.weeklyCosts)
-    .where(like(schema.weeklyCosts.weekLabel, `${y}-W%`));
+    .where(and(
+      eq(schema.weeklyCosts.userId, userId),
+      like(schema.weeklyCosts.weekLabel, `${y}-W%`)
+    ));
 
   return rows
     .filter((row) => {
@@ -54,7 +57,8 @@ async function getMonthlyWeeklyCostsTotal(yearMonth: string): Promise<number> {
 }
 
 export async function getMonthlySummary(
-  yearMonth: string
+  yearMonth: string,
+  userId: string
 ): Promise<MonthlySummary> {
   const [start, end] = monthRange(yearMonth);
   const rows = await db
@@ -65,7 +69,11 @@ export async function getMonthlySummary(
     })
     .from(schema.sales)
     .where(
-      and(gte(schema.sales.saleDate, start), lt(schema.sales.saleDate, end))
+      and(
+        eq(schema.sales.userId, userId),
+        gte(schema.sales.saleDate, start),
+        lt(schema.sales.saleDate, end)
+      )
     );
 
   const revenue = rows.reduce((s, r) => s + r.actualPrice * r.qty, 0);
@@ -73,7 +81,7 @@ export async function getMonthlySummary(
   const profit = revenue - cost;
   const margin = revenue === 0 ? 0 : (profit / revenue) * 100;
 
-  const weeklyCostsTotal = await getMonthlyWeeklyCostsTotal(yearMonth);
+  const weeklyCostsTotal = await getMonthlyWeeklyCostsTotal(yearMonth, userId);
   const netProfit = profit - weeklyCostsTotal;
   const netProfitRate = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
@@ -91,15 +99,14 @@ export async function getMonthlySummary(
 }
 
 export async function getLastNMonthsSummary(
-  n: number
+  n: number,
+  userId: string
 ): Promise<MonthlySummary[]> {
-  // 限制最多查 24 個月，避免過度查詢
   const safeN = Math.min(Math.max(1, Math.floor(n)), 24);
   const months = Array.from({ length: safeN }, (_, i) =>
     currentYearMonth(-(safeN - 1 - i))
   );
-  // 並行查詢提升效能
-  return Promise.all(months.map((m) => getMonthlySummary(m)));
+  return Promise.all(months.map((m) => getMonthlySummary(m, userId)));
 }
 
 export type CategoryPerformance = {
@@ -113,9 +120,10 @@ export type CategoryPerformance = {
 };
 
 export async function getCategoryPerformance(
-  yearMonth?: string
+  yearMonth: string | undefined,
+  userId: string
 ): Promise<CategoryPerformance[]> {
-  const filters = [];
+  const filters = [eq(schema.sales.userId, userId)];
   if (yearMonth) {
     const [start, end] = monthRange(yearMonth);
     filters.push(gte(schema.sales.saleDate, start));
@@ -136,7 +144,7 @@ export async function getCategoryPerformance(
       schema.categories,
       eq(schema.items.categoryId, schema.categories.id)
     )
-    .where(filters.length ? and(...filters) : undefined);
+    .where(and(...filters));
 
   const map = new Map<string, CategoryPerformance>();
   for (const r of rows) {
@@ -175,15 +183,15 @@ export type GuidanceItem = {
   recommendation: string;
 };
 
-export async function getGuidance(): Promise<GuidanceItem[]> {
+export async function getGuidance(userId: string): Promise<GuidanceItem[]> {
   const thisMonth = currentYearMonth(0);
   const prevMonth = currentYearMonth(-1);
   const twoMonthsAgo = currentYearMonth(-2);
 
   const [recentPerf, earlierMonth1, earlierMonth2] = await Promise.all([
-    getCategoryPerformance(thisMonth),
-    getCategoryPerformance(prevMonth),
-    getCategoryPerformance(twoMonthsAgo),
+    getCategoryPerformance(thisMonth, userId),
+    getCategoryPerformance(prevMonth, userId),
+    getCategoryPerformance(twoMonthsAgo, userId),
   ]);
 
   const earlierMap = new Map<string, number>();

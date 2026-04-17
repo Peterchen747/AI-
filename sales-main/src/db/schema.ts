@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 
 export const categories = sqliteTable("categories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id"),
   name: text("name").notNull(),
   description: text("description"),
   isActive: integer("is_active").default(1).notNull(),
@@ -16,6 +17,7 @@ export const categories = sqliteTable("categories", {
 
 export const items = sqliteTable("items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id"),
   categoryId: integer("category_id")
     .references(() => categories.id)
     .notNull(),
@@ -33,6 +35,7 @@ export const items = sqliteTable("items", {
 
 export const sales = sqliteTable("sales", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id"),
   itemId: integer("item_id")
     .references(() => items.id)
     .notNull(),
@@ -57,6 +60,7 @@ export const sales = sqliteTable("sales", {
 
 export const inventoryRecords = sqliteTable("inventory_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id"),
   itemId: integer("item_id")
     .references(() => items.id)
     .notNull(),
@@ -97,6 +101,7 @@ export const screenshots = sqliteTable("screenshots", {
 
 export const shareTokens = sqliteTable("share_tokens", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id"),
   token: text("token").notNull().unique(),
   label: text("label"),
   expiresAt: text("expires_at"),
@@ -107,6 +112,7 @@ export const shareTokens = sqliteTable("share_tokens", {
 
 export const purchaseBatches = sqliteTable('purchase_batches', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
+  userId:        text('user_id'),
   itemId:        integer('item_id').notNull().references(() => items.id),
   purchaseDate:  text('purchase_date').notNull(),
   totalQty:      integer('total_qty').notNull(),
@@ -119,6 +125,7 @@ export const purchaseBatches = sqliteTable('purchase_batches', {
 
 export const weeklyCosts = sqliteTable('weekly_costs', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
+  userId:        text('user_id'),
   weekLabel:     text('week_label').notNull(),
   adCost:        integer('ad_cost').notNull().default(0),
   shippingCost:  integer('shipping_cost').notNull().default(0),

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { purchaseBatches, sales } from "@/db/schema";
+import { auth } from "@/auth";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { id: idStr } = await params;
   const id = parseInt(idStr);
   const body = await request.json();
@@ -21,7 +26,7 @@ export async function PUT(
       unitCost: Math.round(body.totalCost / body.totalQty),
       notes: body.notes,
     })
-    .where(eq(purchaseBatches.id, id))
+    .where(and(eq(purchaseBatches.id, id), eq(purchaseBatches.userId, userId)))
     .returning();
 
   if (updatedRecord.length > 0) {
@@ -38,13 +43,17 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { id: idStr } = await params;
   const id = parseInt(idStr);
 
   const salesCount = await db
     .select()
     .from(sales)
-    .where(eq(sales.inventoryRecordId, id));
+    .where(and(eq(sales.inventoryRecordId, id), eq(sales.userId, userId)));
 
   if (salesCount.length > 0) {
     return NextResponse.json(
@@ -55,7 +64,7 @@ export async function DELETE(
 
   const deleted = await db
     .delete(purchaseBatches)
-    .where(eq(purchaseBatches.id, id))
+    .where(and(eq(purchaseBatches.id, id), eq(purchaseBatches.userId, userId)))
     .returning();
 
   if (deleted.length > 0) {

@@ -107,6 +107,26 @@ async function runEnsureSchema() {
       PRIMARY KEY (identifier, token)
     )
   `);
+
+  // Add user_id columns for data isolation (assign existing rows to first user)
+  const tables = [
+    "categories",
+    "items",
+    "sales",
+    "inventory_records",
+    "purchase_batches",
+    "weekly_costs",
+    "share_tokens",
+  ];
+  for (const table of tables) {
+    const info = await client.execute(`PRAGMA table_info(${table})`);
+    if (!hasColumn(info.rows as ColumnInfoRow[], "user_id")) {
+      await client.execute(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
+      await client.execute(
+        `UPDATE ${table} SET user_id = (SELECT id FROM user LIMIT 1) WHERE user_id IS NULL`
+      );
+    }
+  }
 }
 
 export async function ensureSchema() {

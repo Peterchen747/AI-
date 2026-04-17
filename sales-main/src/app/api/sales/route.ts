@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, gte, like, lte, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
+import { auth } from "@/auth";
 
 type SalePayload = {
   itemId: number;
@@ -29,6 +30,10 @@ function isValidDateString(value: string) {
 
 export async function GET(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month");
   const dateFrom = searchParams.get("dateFrom");
@@ -36,7 +41,7 @@ export async function GET(request: NextRequest) {
   const categoryId = searchParams.get("categoryId");
   const q = searchParams.get("q");
 
-  const filters = [];
+  const filters = [eq(schema.sales.userId, userId)];
   if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
     filters.push(gte(schema.sales.saleDate, dateFrom));
   }
@@ -80,7 +85,7 @@ export async function GET(request: NextRequest) {
     .innerJoin(schema.items, eq(schema.sales.itemId, schema.items.id))
     .leftJoin(schema.categories, eq(schema.items.categoryId, schema.categories.id))
     .leftJoin(schema.inventoryRecords, eq(schema.sales.inventoryRecordId, schema.inventoryRecords.id))
-    .where(filters.length ? and(...filters) : undefined)
+    .where(and(...filters))
     .orderBy(desc(schema.sales.saleDate), desc(schema.sales.id));
 
   return NextResponse.json(rows);
@@ -88,6 +93,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   let body: unknown;
   try {
@@ -120,12 +128,15 @@ export async function POST(request: NextRequest) {
         })
         .from(schema.items)
         .where(
-          itemIds.length === 1
-            ? eq(schema.items.id, itemIds[0])
-            : sql`${schema.items.id} in (${sql.join(
-                itemIds.map((id) => sql`${id}`),
-                sql`, `
-              )})`
+          and(
+            eq(schema.items.userId, userId),
+            itemIds.length === 1
+              ? eq(schema.items.id, itemIds[0])
+              : sql`${schema.items.id} in (${sql.join(
+                  itemIds.map((id) => sql`${id}`),
+                  sql`, `
+                )})`
+          )
         )
     : [];
   const itemMap = new Map(itemRows.map((row) => [row.id, row]));
@@ -217,6 +228,7 @@ export async function POST(request: NextRequest) {
             and(
               eq(schema.inventoryRecords.id, v.inventoryRecordId),
               eq(schema.inventoryRecords.itemId, v.itemId),
+              eq(schema.inventoryRecords.userId, userId),
               eq(schema.inventoryRecords.isActive, 1),
               gte(schema.inventoryRecords.remainingQty, 1)
             )
@@ -243,6 +255,7 @@ export async function POST(request: NextRequest) {
             and(
               eq(schema.purchaseBatches.id, v.purchaseBatchId),
               eq(schema.purchaseBatches.itemId, v.itemId),
+              eq(schema.purchaseBatches.userId, userId),
               gte(schema.purchaseBatches.remainingQty, v.qty)
             )
           )
@@ -261,6 +274,7 @@ export async function POST(request: NextRequest) {
       const [row] = await tx
         .insert(schema.sales)
         .values({
+          userId,
           itemId: v.itemId,
           cost: finalCost,
           actualPrice: v.actualPrice,
@@ -297,7 +311,7 @@ export async function POST(request: NextRequest) {
         typicalPrice: fallback.actualPrice,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(schema.items.id, itemId));
+      .where(and(eq(schema.items.id, itemId), eq(schema.items.userId, userId)));
   }
 
   return NextResponse.json(Array.isArray(body) ? inserted : inserted[0]);
@@ -305,6 +319,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
   if (!id || Number.isNaN(id) || id <= 0) {
@@ -314,7 +332,7 @@ export async function DELETE(request: NextRequest) {
   const deleted = await db.transaction(async (tx) => {
     const rows = await tx
       .delete(schema.sales)
-      .where(eq(schema.sales.id, id))
+      .where(and(eq(schema.sales.id, id), eq(schema.sales.userId, userId)))
       .returning({
         id: schema.sales.id,
         inventoryRecordId: schema.sales.inventoryRecordId,
@@ -353,6 +371,10 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   await ensureSchema();
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
   if (!id || Number.isNaN(id) || id <= 0) {
@@ -411,7 +433,7 @@ export async function PATCH(request: NextRequest) {
   const [updated] = await db
     .update(schema.sales)
     .set(patch)
-    .where(eq(schema.sales.id, id))
+    .where(and(eq(schema.sales.id, id), eq(schema.sales.userId, userId)))
     .returning();
 
   if (!updated) {

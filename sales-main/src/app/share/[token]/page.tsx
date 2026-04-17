@@ -27,18 +27,19 @@ export default async function PublicDashboardPage({
     .where(eq(schema.shareTokens.token, token))
     .limit(1);
 
-  if (!tokenRow) {
+  if (!tokenRow || !tokenRow.userId) {
     notFound();
   }
 
+  const ownerId = tokenRow.userId;
   const thisMonth = currentYearMonth(0);
   const lastMonth = currentYearMonth(-1);
 
   const [current, previous, trend, categoryPerf] = await Promise.all([
-    getMonthlySummary(thisMonth),
-    getMonthlySummary(lastMonth),
-    getLastNMonthsSummary(6),
-    getCategoryPerformance(thisMonth),
+    getMonthlySummary(thisMonth, ownerId),
+    getMonthlySummary(lastMonth, ownerId),
+    getLastNMonthsSummary(6, ownerId),
+    getCategoryPerformance(thisMonth, ownerId),
   ]);
 
   return (

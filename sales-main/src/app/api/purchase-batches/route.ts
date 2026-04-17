@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { db } from "@/db";
 import { purchaseBatches, items } from "@/db/schema";
+import { auth } from "@/auth";
 
 export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const itemIdParam = request.nextUrl.searchParams.get("itemId");
-  const itemIdFilter =
-    itemIdParam && /^\d+$/.test(itemIdParam)
-      ? eq(purchaseBatches.itemId, Number(itemIdParam))
-      : undefined;
+  const filters = [eq(purchaseBatches.userId, userId)];
+  if (itemIdParam && /^\d+$/.test(itemIdParam)) {
+    filters.push(eq(purchaseBatches.itemId, Number(itemIdParam)));
+  }
 
   const result = await db
     .select({
@@ -17,17 +22,30 @@ export async function GET(request: NextRequest) {
     })
     .from(purchaseBatches)
     .innerJoin(items, eq(items.id, purchaseBatches.itemId))
-    .where(itemIdFilter ? and(itemIdFilter) : undefined)
+    .where(and(...filters))
     .orderBy(desc(purchaseBatches.purchaseDate));
 
   return NextResponse.json(result);
 }
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
+
   const { itemId, purchaseDate, totalQty, totalCost, notes } = await request.json();
   const unitCost = Math.round(totalCost / totalQty);
 
+  // Verify item belongs to user
+  const [item] = await db
+    .select({ id: items.id })
+    .from(items)
+    .where(and(eq(items.id, itemId), eq(items.userId, userId)))
+    .limit(1);
+  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
   const [batch] = await db.insert(purchaseBatches).values({
+    userId,
     itemId,
     purchaseDate,
     totalQty,
@@ -37,11 +55,10 @@ export async function POST(request: NextRequest) {
     notes,
   }).returning();
 
-  // 同步更新商品的典型成本，讓進貨管理與商品分類的成本保持一致
   await db
     .update(items)
     .set({ typicalCost: unitCost, updatedAt: new Date().toISOString() })
-    .where(eq(items.id, itemId));
+    .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
   return NextResponse.json(batch);
 }
