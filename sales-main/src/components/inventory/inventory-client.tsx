@@ -7,14 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ItemCombobox } from "@/components/sales/item-combobox";
+import { CategoryCombobox } from "@/components/sales/category-combobox";
 import { formatNTD } from "@/lib/utils";
 
 type Category = { id: number; name: string };
@@ -49,6 +43,7 @@ export function InventoryClient({
 }) {
   const router = useRouter();
   const [records, setRecords] = useState<InventoryRecord[]>(initialRecords);
+  const [categoryList, setCategoryList] = useState<Category[]>(categories);
   const [items, setItems] = useState<Item[]>([]);
 
   const [categoryId, setCategoryId] = useState("");
@@ -78,6 +73,25 @@ export function InventoryClient({
       .catch(() => setItems([]));
     setItemId(null);
   }, [categoryId]);
+
+  async function onCreateCategory(name: string): Promise<Category | null> {
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      toast.error("建立分類失敗");
+      return null;
+    }
+    const created: Category = await res.json();
+    setCategoryList((prev) => [...prev, created]);
+    setCategoryId(String(created.id));
+    setItems([]);
+    setItemId(null);
+    toast.success(`已建立分類：${created.name}`);
+    return created;
+  }
 
   async function onCreateItem(name: string): Promise<Item | null> {
     if (!categoryId) {
@@ -197,18 +211,13 @@ export function InventoryClient({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>分類 *</Label>
-            <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
-              <SelectTrigger>
-                <SelectValue placeholder="請選擇分類" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CategoryCombobox
+              categories={categoryList}
+              value={categoryId ? Number(categoryId) : null}
+              onSelect={(cat) => setCategoryId(String(cat.id))}
+              onCreate={onCreateCategory}
+              placeholder="選擇或新增分類"
+            />
           </div>
           <div>
             <Label>商品 *</Label>
@@ -225,11 +234,11 @@ export function InventoryClient({
           </div>
           <div>
             <Label>單位成本 (NT$) *</Label>
-            <Input type="number" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+            <Input type="number" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} placeholder="例如：120" />
           </div>
           <div>
             <Label>數量 *</Label>
-            <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="例如：30" />
           </div>
           <div>
             <Label>入庫日期 *</Label>
@@ -237,7 +246,7 @@ export function InventoryClient({
           </div>
           <div className="md:col-span-2">
             <Label>備註</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="例如：秋冬新品第一批，供應商特價（選填）" />
           </div>
         </div>
         <div className="flex justify-end">

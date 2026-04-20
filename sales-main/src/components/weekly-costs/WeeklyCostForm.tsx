@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,45 +13,62 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatWeekRange } from "@/lib/week-utils";
 
-/** 計算某日期的 ISO 週標籤，格式 YYYY-WNN */
-function getISOWeekLabel(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayOfWeek = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayOfWeek);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  const year = d.getUTCFullYear();
-  return `${year}-W${String(week).padStart(2, "0")}`;
-}
-
-/** 產生最近 n 週的 weekLabel 列表，從本週往前 */
-function recentWeekLabels(n: number): string[] {
+function recentMonthLabels(n: number): string[] {
   const labels: string[] = [];
   const now = new Date();
   for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i * 7);
-    labels.push(getISOWeekLabel(d));
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    labels.push(`${y}-${m}`);
   }
   return labels;
 }
 
-type Props = {
-  onSuccess?: () => void;
+function formatMonthLabel(label: string): string {
+  const [y, m] = label.split("-");
+  return `${y}年${m}月`;
+}
+
+type InitialData = {
+  weekLabel: string;
+  adCost: number;
+  shippingCost: number;
+  packagingCost: number;
+  otherCost: number;
+  notes: string | null;
 };
 
-export function WeeklyCostForm({ onSuccess }: Props) {
-  const weeks = recentWeekLabels(4);
+type Props = {
+  onSuccess?: () => void;
+  initialData?: InitialData;
+  onClearEdit?: () => void;
+};
 
-  const [weekLabel, setWeekLabel] = useState(weeks[0]);
+export function WeeklyCostForm({ onSuccess, initialData, onClearEdit }: Props) {
+  const recentMonths = recentMonthLabels(6);
+  const months = initialData && !recentMonths.includes(initialData.weekLabel) && /^\d{4}-\d{2}$/.test(initialData.weekLabel)
+    ? [initialData.weekLabel, ...recentMonths]
+    : recentMonths;
+
+  const [monthLabel, setMonthLabel] = useState(months[0]);
   const [adCost, setAdCost] = useState("0");
   const [shippingCost, setShippingCost] = useState("0");
   const [packagingCost, setPackagingCost] = useState("0");
   const [otherCost, setOtherCost] = useState("0");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!initialData) return;
+    setMonthLabel(initialData.weekLabel);
+    setAdCost(String(initialData.adCost));
+    setShippingCost(String(initialData.shippingCost));
+    setPackagingCost(String(initialData.packagingCost));
+    setOtherCost(String(initialData.otherCost));
+    setNotes(initialData.notes ?? "");
+  }, [initialData]);
 
   const total =
     (Number(adCost) || 0) +
@@ -81,7 +98,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          weekLabel,
+          weekLabel: monthLabel,
           adCost: adCostNum,
           shippingCost: shippingCostNum,
           packagingCost: packagingCostNum,
@@ -96,7 +113,14 @@ export function WeeklyCostForm({ onSuccess }: Props) {
         return;
       }
 
-      toast.success(`${weekLabel} 成本已儲存`);
+      toast.success(`${formatMonthLabel(monthLabel)} 成本已儲存`);
+      setMonthLabel(months[0]);
+      setAdCost("0");
+      setShippingCost("0");
+      setPackagingCost("0");
+      setOtherCost("0");
+      setNotes("");
+      onClearEdit?.();
       onSuccess?.();
     } catch {
       toast.error("網路錯誤，請稍後再試");
@@ -108,16 +132,16 @@ export function WeeklyCostForm({ onSuccess }: Props) {
   return (
     <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
       <div>
-        <Label>週次</Label>
-        <Select value={weekLabel} onValueChange={(v) => v && setWeekLabel(v)}>
+        <Label>月份</Label>
+        <Select value={monthLabel} onValueChange={(v) => v && setMonthLabel(v)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {weeks.map((w, i) => (
-              <SelectItem key={w} value={w}>
-                {formatWeekRange(w)}
-                {i === 0 ? "（本週）" : i === 1 ? "（上週）" : ""}
+            {months.map((m, i) => (
+              <SelectItem key={m} value={m}>
+                {formatMonthLabel(m)}
+                {i === 0 ? "（本月）" : i === 1 ? "（上個月）" : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -133,6 +157,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
             min="0"
             value={adCost}
             onChange={(e) => setAdCost(e.target.value)}
+            placeholder="例如：1500（LINE/IG 廣告投放）"
             className="h-11"
           />
         </div>
@@ -144,6 +169,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
             min="0"
             value={shippingCost}
             onChange={(e) => setShippingCost(e.target.value)}
+            placeholder="例如：300（超商/黑貓寄送費用）"
             className="h-11"
           />
         </div>
@@ -155,6 +181,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
             min="0"
             value={packagingCost}
             onChange={(e) => setPackagingCost(e.target.value)}
+            placeholder="例如：200（紙盒、緞帶、防撞泡棉）"
             className="h-11"
           />
         </div>
@@ -166,6 +193,7 @@ export function WeeklyCostForm({ onSuccess }: Props) {
             min="0"
             value={otherCost}
             onChange={(e) => setOtherCost(e.target.value)}
+            placeholder="例如：100（平台手續費、其他雜支）"
             className="h-11"
           />
         </div>
@@ -176,19 +204,36 @@ export function WeeklyCostForm({ onSuccess }: Props) {
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="例如：本週雙11活動加碼廣告"
+          placeholder="例如：本月雙11活動加碼廣告"
           rows={2}
         />
       </div>
 
       <div className="rounded-md bg-muted px-4 py-2 text-sm font-medium">
-        本週合計：NT$ {total.toLocaleString()}
+        本月合計：NT$ {total.toLocaleString()}
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <Button type="submit" disabled={saving} className="w-full md:w-auto">
-          {saving ? "儲存中..." : "儲存成本"}
+          {saving ? "儲存中..." : initialData ? "更新成本" : "儲存成本"}
         </Button>
+        {initialData && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setMonthLabel(months[0]);
+              setAdCost("0");
+              setShippingCost("0");
+              setPackagingCost("0");
+              setOtherCost("0");
+              setNotes("");
+              onClearEdit?.();
+            }}
+          >
+            取消編輯
+          </Button>
+        )}
       </div>
     </form>
   );

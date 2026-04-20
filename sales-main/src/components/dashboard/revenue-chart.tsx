@@ -10,18 +10,31 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonthlySummary } from "@/lib/calculations";
 
 export function RevenueChart({ data }: { data: MonthlySummary[] }) {
+  const router = useRouter();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>近 6 個月淨利趨勢</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>近 6 個月淨利趨勢</span>
+          <span className="text-sm font-normal text-muted-foreground">點擊月份查看財務分析 →</span>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data}>
+          <BarChart
+            data={data}
+            style={{ cursor: "pointer" }}
+            onClick={(payload) => {
+              const month = payload?.activeLabel;
+              if (month) router.push(`/dashboard/analysis?month=${month}`);
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis dataKey="month" />
             <YAxis

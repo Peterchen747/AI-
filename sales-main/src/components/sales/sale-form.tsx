@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ItemCombobox } from "./item-combobox";
+import { CategoryCombobox } from "./category-combobox";
 
 type Category = { id: number; name: string };
 type Item = {
@@ -65,6 +66,7 @@ export function SaleForm({ categories }: { categories: Category[] }) {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("tab") === "batch" ? "batch" : "single";
   const [mode, setMode] = useState(initialMode);
+  const [categoryList, setCategoryList] = useState<Category[]>(categories);
   const [categoryId, setCategoryId] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [itemId, setItemId] = useState<number | null>(null);
@@ -142,6 +144,25 @@ export function SaleForm({ categories }: { categories: Category[] }) {
     if (batchId === null) return;
     const batch = purchaseBatches.find((b) => b.id === batchId);
     if (batch) setCost(String(batch.unitCost));
+  }
+
+  async function onCreateCategory(name: string): Promise<Category | null> {
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      toast.error("建立分類失敗");
+      return null;
+    }
+    const created: Category = await res.json();
+    setCategoryList((prev) => [...prev, created]);
+    setCategoryId(String(created.id));
+    setItems([]);
+    setItemId(null);
+    toast.success(`已建立分類：${created.name}`);
+    return created;
   }
 
   async function onCreateItem(name: string): Promise<Item | null> {
@@ -364,9 +385,10 @@ export function SaleForm({ categories }: { categories: Category[] }) {
       <TabsContent value="single" className="pt-2">
         <form onSubmit={onSingleSubmit} className="space-y-4 max-w-xl">
           <CommonFields
-            categories={categories}
+            categoryList={categoryList}
             categoryId={categoryId}
-            setCategoryId={setCategoryId}
+            onSelectCategory={(cat) => setCategoryId(String(cat.id))}
+            onCreateCategory={onCreateCategory}
             items={items}
             itemId={itemId}
             onSelectItem={onSelectItem}
@@ -450,9 +472,10 @@ export function SaleForm({ categories }: { categories: Category[] }) {
 
               <div className="rounded border p-4 space-y-4">
                 <CommonFields
-                  categories={categories}
+                  categoryList={categoryList}
                   categoryId={categoryId}
-                  setCategoryId={setCategoryId}
+                  onSelectCategory={(cat) => setCategoryId(String(cat.id))}
+                  onCreateCategory={onCreateCategory}
                   items={items}
                   itemId={itemId}
                   onSelectItem={onSelectItem}
@@ -489,9 +512,10 @@ export function SaleForm({ categories }: { categories: Category[] }) {
 }
 
 function CommonFields(props: {
-  categories: Category[];
+  categoryList: Category[];
   categoryId: string;
-  setCategoryId: (v: string) => void;
+  onSelectCategory: (cat: Category) => void;
+  onCreateCategory: (name: string) => Promise<Category | null>;
   items: Item[];
   itemId: number | null;
   onSelectItem: (item: Item) => void;
@@ -516,16 +540,13 @@ function CommonFields(props: {
     <>
       <div>
         <Label>大分類 *</Label>
-        <Select value={props.categoryId} onValueChange={(v) => props.setCategoryId(v ?? "")}>
-          <SelectTrigger>
-            <SelectValue placeholder="請選擇大分類" />
-          </SelectTrigger>
-          <SelectContent>
-            {props.categories.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CategoryCombobox
+          categories={props.categoryList}
+          value={props.categoryId ? Number(props.categoryId) : null}
+          onSelect={props.onSelectCategory}
+          onCreate={props.onCreateCategory}
+          placeholder="選擇或新增大分類"
+        />
       </div>
 
       <div>
@@ -570,16 +591,17 @@ function CommonFields(props: {
             step="1"
             value={props.qty}
             onChange={(e) => props.setQty(e.target.value)}
+            placeholder="例如：1"
             className="h-11"
           />
         </div>
         <div>
           <Label>成本/件 (NT$) *</Label>
-          <Input type="number" inputMode="numeric" value={props.cost} onChange={(e) => props.setCost(e.target.value)} className="h-11" />
+          <Input type="number" inputMode="numeric" value={props.cost} onChange={(e) => props.setCost(e.target.value)} placeholder="例如：150" className="h-11" />
         </div>
         <div>
           <Label>售價/件 (NT$) *</Label>
-          <Input type="number" inputMode="numeric" value={props.actualPrice} onChange={(e) => props.setActualPrice(e.target.value)} className="h-11" />
+          <Input type="number" inputMode="numeric" value={props.actualPrice} onChange={(e) => props.setActualPrice(e.target.value)} placeholder="例如：320" className="h-11" />
         </div>
       </div>
 
@@ -590,12 +612,12 @@ function CommonFields(props: {
 
       <div>
         <Label>客戶名稱（寫入備註）</Label>
-        <Input value={props.customerName} onChange={(e) => props.setCustomerName(e.target.value)} placeholder="例如：王小明" className="h-11" />
+        <Input value={props.customerName} onChange={(e) => props.setCustomerName(e.target.value)} placeholder="例如：王小明（選填）" className="h-11" />
       </div>
 
       <div>
         <Label>其他備註</Label>
-        <Textarea value={props.orderMemo} onChange={(e) => props.setOrderMemo(e.target.value)} />
+        <Textarea value={props.orderMemo} onChange={(e) => props.setOrderMemo(e.target.value)} placeholder="例如：客戶要求加強包裝、附贈提袋（選填）" />
       </div>
     </>
   );

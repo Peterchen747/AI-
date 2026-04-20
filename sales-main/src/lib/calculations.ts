@@ -36,7 +36,18 @@ export function currentYearMonth(offset = 0): string {
  */
 async function getMonthlyWeeklyCostsTotal(yearMonth: string, userId: string): Promise<number> {
   const [y, m] = yearMonth.split("-").map(Number);
-  const rows = await db
+
+  // 新格式：YYYY-MM 直接比對
+  const monthRows = await db
+    .select({ totalCost: schema.weeklyCosts.totalCost })
+    .from(schema.weeklyCosts)
+    .where(and(
+      eq(schema.weeklyCosts.userId, userId),
+      eq(schema.weeklyCosts.weekLabel, yearMonth)
+    ));
+
+  // 舊格式：YYYY-WNN，用週四判斷歸屬月份
+  const weekRows = await db
     .select({ weekLabel: schema.weeklyCosts.weekLabel, totalCost: schema.weeklyCosts.totalCost })
     .from(schema.weeklyCosts)
     .where(and(
@@ -44,16 +55,18 @@ async function getMonthlyWeeklyCostsTotal(yearMonth: string, userId: string): Pr
       like(schema.weeklyCosts.weekLabel, `${y}-W%`)
     ));
 
-  return rows
+  const weekTotal = weekRows
     .filter((row) => {
       const range = getWeekDateRange(row.weekLabel);
       if (!range) return false;
-      // 週四 = 週一 + 3 天
       const thursday = new Date(range.start);
       thursday.setUTCDate(thursday.getUTCDate() + 3);
       return thursday.getUTCFullYear() === y && thursday.getUTCMonth() + 1 === m;
     })
     .reduce((sum, row) => sum + (row.totalCost ?? 0), 0);
+
+  const monthTotal = monthRows.reduce((sum, row) => sum + (row.totalCost ?? 0), 0);
+  return monthTotal + weekTotal;
 }
 
 export async function getMonthlySummary(
@@ -227,6 +240,70 @@ export async function getGuidance(userId: string): Promise<GuidanceItem[]> {
     });
   }
   return items;
+}
+
+export type WeeklyCostDetail = {
+  adCost: number;
+  shippingCost: number;
+  packagingCost: number;
+  otherCost: number;
+  totalCost: number;
+};
+
+export async function getWeeklyCostDetail(
+  yearMonth: string,
+  userId: string
+): Promise<WeeklyCostDetail> {
+  const [y, m] = yearMonth.split("-").map(Number);
+
+  // 新格式：YYYY-MM 直接比對
+  const monthRows = await db
+    .select({
+      adCost: schema.weeklyCosts.adCost,
+      shippingCost: schema.weeklyCosts.shippingCost,
+      packagingCost: schema.weeklyCosts.packagingCost,
+      otherCost: schema.weeklyCosts.otherCost,
+    })
+    .from(schema.weeklyCosts)
+    .where(and(
+      eq(schema.weeklyCosts.userId, userId),
+      eq(schema.weeklyCosts.weekLabel, yearMonth)
+    ));
+
+  // 舊格式：YYYY-WNN
+  const weekRows = await db
+    .select({
+      weekLabel: schema.weeklyCosts.weekLabel,
+      adCost: schema.weeklyCosts.adCost,
+      shippingCost: schema.weeklyCosts.shippingCost,
+      packagingCost: schema.weeklyCosts.packagingCost,
+      otherCost: schema.weeklyCosts.otherCost,
+    })
+    .from(schema.weeklyCosts)
+    .where(and(
+      eq(schema.weeklyCosts.userId, userId),
+      like(schema.weeklyCosts.weekLabel, `${y}-W%`)
+    ));
+
+  const filteredWeek = weekRows.filter((row) => {
+    const range = getWeekDateRange(row.weekLabel);
+    if (!range) return false;
+    const thursday = new Date(range.start);
+    thursday.setUTCDate(thursday.getUTCDate() + 3);
+    return thursday.getUTCFullYear() === y && thursday.getUTCMonth() + 1 === m;
+  });
+
+  const combined = [...monthRows, ...filteredWeek];
+  return {
+    adCost: combined.reduce((s, r) => s + (r.adCost ?? 0), 0),
+    shippingCost: combined.reduce((s, r) => s + (r.shippingCost ?? 0), 0),
+    packagingCost: combined.reduce((s, r) => s + (r.packagingCost ?? 0), 0),
+    otherCost: combined.reduce((s, r) => s + (r.otherCost ?? 0), 0),
+    totalCost: combined.reduce(
+      (s, r) => s + (r.adCost ?? 0) + (r.shippingCost ?? 0) + (r.packagingCost ?? 0) + (r.otherCost ?? 0),
+      0
+    ),
+  };
 }
 
 // Suppress unused warning for sql import

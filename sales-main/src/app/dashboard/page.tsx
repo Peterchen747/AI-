@@ -69,9 +69,9 @@ export default async function DashboardPage({
         <DashboardMonthPicker current={selectedMonth} />
       </div>
 
-      <SummaryCards current={current} previous={previous} />
-
       <RevenueChart data={trend} />
+
+      <SummaryCards current={current} previous={previous} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TopCategoriesChart data={categoryPerf} monthRange={monthRange} />

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       .from(schema.weeklyCosts)
       .where(eq(schema.weeklyCosts.userId, userId))
       .orderBy(desc(schema.weeklyCosts.weekLabel))
-      .limit(8);
+      .limit(50);
     return NextResponse.json(recentWeeklyCosts);
   }
 }

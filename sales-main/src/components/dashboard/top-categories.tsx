@@ -1,16 +1,14 @@
-"use client";
-
 import Link from "next/link";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatNTD } from "@/lib/utils";
 import type { CategoryPerformance } from "@/lib/calculations";
 
 export function TopCategoriesChart({
@@ -20,7 +18,8 @@ export function TopCategoriesChart({
   data: CategoryPerformance[];
   monthRange?: { from: string; to: string };
 }) {
-  const top = data.slice(0, 10);
+  const top = [...data].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+
   return (
     <Card>
       <CardHeader>
@@ -32,48 +31,49 @@ export function TopCategoriesChart({
             本月尚無銷售資料
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={Math.max(200, top.length * 40)}>
-            <BarChart
-              data={top}
-              layout="vertical"
-              margin={{ left: 80 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                type="number"
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-              />
-              <YAxis
-                type="category"
-                dataKey="categoryName"
-                width={80}
-              />
-              <Tooltip
-                formatter={(v) => `NT$ ${Number(v).toLocaleString("zh-TW")}`}
-              />
-              <Bar dataKey="revenue" name="營收" fill="#8b5cf6" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-        {top.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <span className="text-muted-foreground">查看明細:</span>
-            {top.map((c) =>
-              c.categoryId != null ? (
-                <Link
-                  key={c.categoryId}
-                  href={
-                    monthRange
-                      ? `/sales?categoryId=${c.categoryId}&dateFrom=${monthRange.from}&dateTo=${monthRange.to}`
-                      : `/sales?categoryId=${c.categoryId}`
-                  }
-                  className="text-primary hover:underline"
-                >
-                  {c.categoryName}
-                </Link>
-              ) : null
-            )}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>分類</TableHead>
+                <TableHead className="text-right">筆數</TableHead>
+                <TableHead className="text-right">營收</TableHead>
+                <TableHead className="text-right">利潤</TableHead>
+                <TableHead className="text-right">毛利率</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {top.map((c) => (
+                <TableRow key={c.categoryName}>
+                  <TableCell className="font-medium">
+                    {c.categoryId != null ? (
+                      <Link
+                        href={
+                          monthRange
+                            ? `/sales?categoryId=${c.categoryId}&dateFrom=${monthRange.from}&dateTo=${monthRange.to}`
+                            : `/sales?categoryId=${c.categoryId}`
+                        }
+                        className="hover:underline text-primary"
+                      >
+                        {c.categoryName}
+                      </Link>
+                    ) : (
+                      c.categoryName
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{c.count}</TableCell>
+                  <TableCell className="text-right">{formatNTD(c.revenue)}</TableCell>
+                  <TableCell
+                    className={`text-right ${c.profit < 0 ? "text-red-600" : ""}`}
+                  >
+                    {formatNTD(c.profit)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {c.margin.toFixed(1)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>
