@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { SessionProvider } from "next-auth/react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Sidebar } from "@/components/layout/sidebar";
 import "./globals.css";
@@ -32,10 +31,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full flex">
-        <SessionProvider>
-          <AppShell sidebar={<Sidebar />}>{children}</AppShell>
-          <Toaster richColors position="top-right" />
-        </SessionProvider>
+        <AppShell sidebar={<Sidebar />}>{children}</AppShell>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

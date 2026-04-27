@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
 import { currentYearMonth } from "@/lib/calculations";
 import { getWeekDateRange } from "@/lib/week-utils";
-import { auth } from "@/auth";
+import { DEMO_USER_ID } from "@/lib/mock-session";
 
 type Alert = {
   type: string;
@@ -15,9 +15,7 @@ type Alert = {
 
 export async function GET(_request: NextRequest) {
   await ensureSchema();
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   const alerts: Alert[] = [];
 

@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { auth } from "@/auth";
+import { DEMO_USER_ID } from "@/lib/mock-session";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   const { searchParams } = new URL(request.url);
   const includeArchived = searchParams.get("includeArchived") === "1";
@@ -25,9 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   let body: Record<string, unknown>;
   try {
@@ -57,9 +53,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   let body: Record<string, unknown>;
   try {
@@ -102,9 +96,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));

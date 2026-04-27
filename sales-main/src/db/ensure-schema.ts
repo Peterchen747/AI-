@@ -108,7 +108,13 @@ async function runEnsureSchema() {
     )
   `);
 
-  // Add user_id columns for data isolation (assign existing rows to first user)
+  // Ensure demo user exists
+  const DEMO_USER_ID = "demo-user-001";
+  await client.execute(
+    `INSERT OR IGNORE INTO user (id, name, email) VALUES ('${DEMO_USER_ID}', 'Demo User', 'demo@localhost')`
+  );
+
+  // Add user_id columns for data isolation (assign existing rows to demo user)
   const tables = [
     "categories",
     "items",
@@ -122,10 +128,10 @@ async function runEnsureSchema() {
     const info = await client.execute(`PRAGMA table_info(${table})`);
     if (!hasColumn(info.rows as ColumnInfoRow[], "user_id")) {
       await client.execute(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
-      await client.execute(
-        `UPDATE ${table} SET user_id = (SELECT id FROM user LIMIT 1) WHERE user_id IS NULL`
-      );
     }
+    await client.execute(
+      `UPDATE ${table} SET user_id = '${DEMO_USER_ID}' WHERE user_id IS NULL`
+    );
   }
 }
 

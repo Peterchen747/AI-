@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { purchaseBatches, sales } from "@/db/schema";
-import { auth } from "@/auth";
+import { DEMO_USER_ID } from "@/lib/mock-session";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr);
@@ -43,9 +41,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = session.user.id;
+  const userId = DEMO_USER_ID;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr);
