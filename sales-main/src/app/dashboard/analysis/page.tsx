@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { DEMO_USER_ID } from "@/lib/mock-session";
 import {
   getMonthlySummary,
   getCategoryPerformance,
@@ -25,13 +24,11 @@ export default async function AnalysisPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   await ensureSchema();
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = DEMO_USER_ID;
 
   const { month } = await searchParams;
   const selectedMonth = month ?? currentYearMonth();
   const prevMonth = previousMonth(selectedMonth);
-  const userId = session.user.id;
 
   const [summary, prevSummary, categories, weeklyDetail] = await Promise.all([
     getMonthlySummary(selectedMonth, userId),
