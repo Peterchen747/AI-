@@ -27,19 +27,39 @@ export async function GET(_request: NextRequest) {
       ? `${y + 1}-01-01`
       : `${y}-${String(m + 1).padStart(2, "0")}-01`;
 
-  const salesRows = await db
-    .select({ actualPrice: schema.sales.actualPrice, qty: schema.sales.qty })
-    .from(schema.sales)
-    .where(
-      and(
-        eq(schema.sales.userId, userId),
-        gte(schema.sales.saleDate, monthStart),
-        lt(schema.sales.saleDate, nextMonthStart)
-      )
-    );
+  // Previous month bounds
+  const prevY = m === 1 ? y - 1 : y;
+  const prevM = m === 1 ? 12 : m - 1;
+  const prevMonthStr = `${prevY}-${String(prevM).padStart(2, "0")}`;
+  const prevMonthStart = `${prevMonthStr}-01`;
+
+  const [salesRows, prevSalesRows] = await Promise.all([
+    db
+      .select({ actualPrice: schema.sales.actualPrice, qty: schema.sales.qty })
+      .from(schema.sales)
+      .where(
+        and(
+          eq(schema.sales.userId, userId),
+          gte(schema.sales.saleDate, monthStart),
+          lt(schema.sales.saleDate, nextMonthStart)
+        )
+      ),
+    db
+      .select({ actualPrice: schema.sales.actualPrice, qty: schema.sales.qty })
+      .from(schema.sales)
+      .where(
+        and(
+          eq(schema.sales.userId, userId),
+          gte(schema.sales.saleDate, prevMonthStart),
+          lt(schema.sales.saleDate, monthStart)
+        )
+      ),
+  ]);
 
   const revenue = salesRows.reduce((s, r) => s + r.actualPrice * r.qty, 0);
+  const prevRevenue = prevSalesRows.reduce((s, r) => s + r.actualPrice * r.qty, 0);
 
+  // Weekly costs for this year (YYYY-W## format)
   const weeklyCostRows = await db
     .select({
       weekLabel: schema.weeklyCosts.weekLabel,
@@ -48,6 +68,7 @@ export async function GET(_request: NextRequest) {
     .from(schema.weeklyCosts)
     .where(and(eq(schema.weeklyCosts.userId, userId), like(schema.weeklyCosts.weekLabel, `${y}-W%`)));
 
+  // Filter to weeks whose Thursday falls in the current month
   const thisMonthWeeklyCosts = weeklyCostRows.filter((row) => {
     const range = getWeekDateRange(row.weekLabel);
     if (!range) return false;
@@ -68,7 +89,7 @@ export async function GET(_request: NextRequest) {
         type: "ad_cost_high",
         severity: "high",
         title: "廣告費異常偏高",
-        detail: `本月廣告費佔營收 ${pct}%，超過 30% 警戒線（廣告費 NT$${monthlyAdCost}，營收 NT$${revenue}）`,
+        detail: `本月廣告費佔營收 ${pct}%，超過 30% 警戒線（廣告費 NT$${monthlyAdCost.toLocaleString()}，營收 NT$${revenue.toLocaleString()}）`,
       });
     }
   }
@@ -90,18 +111,17 @@ export async function GET(_request: NextRequest) {
       .where(and(eq(schema.items.userId, userId), inArray(schema.items.id, itemIds)));
 
     const itemMap = new Map(itemRows.map((i) => [i.id, i.name]));
-    const itemNames = lowBatches
-      .map(
-        (b) =>
-          `${itemMap.get(b.itemId) ?? "未知"}（剩 ${b.remainingQty} 件）`
-      )
+    const summary = lowBatches
+      .slice(0, 5)
+      .map((b) => `${itemMap.get(b.itemId) ?? "未知"}（剩 ${b.remainingQty} 件）`)
       .join("、");
+    const extra = lowBatches.length > 5 ? `，另 ${lowBatches.length - 5} 筆批次亦偏低` : "";
 
     alerts.push({
       type: "low_inventory",
       severity: "medium",
-      title: "庫存偏低警示",
-      detail: `以下進貨批次剩餘數量 ≤ 3：${itemNames}`,
+      title: `庫存偏低警示（${lowBatches.length} 筆批次）`,
+      detail: `以下進貨批次剩餘數量 ≤ 3：${summary}${extra}`,
     });
   }
 
@@ -111,7 +131,7 @@ export async function GET(_request: NextRequest) {
       type: "no_weekly_costs",
       severity: "high",
       title: "本月成本未登記",
-      detail: `本月已有 ${salesRows.length} 筆銷售紀錄，但每週廣告／運費等成本尚未登記，淨利計算可能不準確。`,
+      detail: `本月已有 ${salesRows.length} 筆銷售紀錄，但廣告／運費等週費用尚未登記，淨利計算可能不準確。`,
     });
   }
 
@@ -127,7 +147,6 @@ export async function GET(_request: NextRequest) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
-
     if (latestSale[0].saleDate < sevenDaysAgoStr) {
       alerts.push({
         type: "no_recent_sales",
@@ -136,6 +155,17 @@ export async function GET(_request: NextRequest) {
         detail: `最後一筆銷售日期為 ${latestSale[0].saleDate}，已超過 7 天未有新訂單。`,
       });
     }
+  }
+
+  // Alert 5: 月比月營收下滑超過 15%
+  if (prevRevenue > 0 && revenue < prevRevenue * 0.85) {
+    const dropPct = (((prevRevenue - revenue) / prevRevenue) * 100).toFixed(1);
+    alerts.push({
+      type: "revenue_decline",
+      severity: "high",
+      title: "本月營收明顯下滑",
+      detail: `本月營收 NT$${revenue.toLocaleString()}，較上月 NT$${prevRevenue.toLocaleString()} 下降 ${dropPct}%（警戒線 15%）。建議檢查近期訂單來源與推廣力度。`,
+    });
   }
 
   return NextResponse.json(alerts);
