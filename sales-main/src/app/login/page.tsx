@@ -45,14 +45,14 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="email">電子郵件</Label>
+              <Label htmlFor="email">帳號</Label>
               <Input
                 id="email"
                 name="email"
-                type="email"
+                type="text"
                 required
-                autoComplete="email"
-                placeholder="your@email.com"
+                autoComplete="username"
+                placeholder="輸入帳號"
               />
             </div>
             <div className="space-y-1">

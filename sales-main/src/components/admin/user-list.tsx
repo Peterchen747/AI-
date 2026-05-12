@@ -20,7 +20,7 @@ import {
 
 const schema = z.object({
   name: z.string().optional(),
-  email: z.string().email("請輸入有效的 Email"),
+  email: z.string().min(1, "帳號必填"),
   password: z.string().min(6, "密碼至少 6 個字元"),
 });
 type FormValues = z.infer<typeof schema>;
@@ -78,8 +78,8 @@ export function AdminUserList({ users: initial }: { users: User[] }) {
               <Input {...register("name")} placeholder="王小明" />
             </div>
             <div className="space-y-1">
-              <Label>電子郵件</Label>
-              <Input {...register("email")} type="email" placeholder="user@example.com" />
+              <Label>帳號</Label>
+              <Input {...register("email")} type="text" placeholder="輸入帳號" />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-1">
@@ -103,7 +103,7 @@ export function AdminUserList({ users: initial }: { users: User[] }) {
             <TableHeader>
               <TableRow>
                 <TableHead>姓名</TableHead>
-                <TableHead>電子郵件</TableHead>
+                <TableHead>帳號</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
