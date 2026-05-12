@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,12 +21,11 @@ const PROTECTED_PREFIXES = [
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
   await ensureSchema();
   return {
-    adapter: DrizzleAdapter(db),
-    session: { strategy: "database", maxAge: 60 * 60 * 24 * 30 },
+    session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
     providers: [
       Credentials({
         credentials: {
-          email: { label: "Email", type: "email" },
+          email: { label: "Email", type: "text" },
           password: { label: "Password", type: "password" },
         },
         async authorize(credentials) {
@@ -60,9 +58,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         if (!isProtected) return true;
         return Boolean(session?.user);
       },
-      async session({ session, user }) {
-        if (session.user && user?.id) {
-          session.user.id = user.id;
+      async jwt({ token, user }) {
+        if (user?.id) token.id = user.id;
+        return token;
+      },
+      async session({ session, token }) {
+        if (session.user && token?.id) {
+          session.user.id = token.id as string;
         }
         return session;
       },
