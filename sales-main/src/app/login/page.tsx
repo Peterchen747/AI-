@@ -31,7 +31,8 @@ export default function LoginPage() {
     if (result?.error) {
       toast.error("帳號或密碼錯誤");
     } else {
-      const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+      const raw = searchParams.get("callbackUrl") ?? "/dashboard";
+      const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
       router.push(callbackUrl);
     }
   }

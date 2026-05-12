@@ -40,10 +40,30 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
 
-  const body = await request.json();
-  const { weekLabel, adCost, shippingCost, packagingCost, otherCost, notes } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
-  const totalCost = (adCost ?? 0) + (shippingCost ?? 0) + (packagingCost ?? 0) + (otherCost ?? 0);
+  const rawWeekLabel = body.weekLabel;
+  if (!rawWeekLabel || typeof rawWeekLabel !== "string" || !/^\d{4}-W\d{1,2}$/.test(rawWeekLabel)) {
+    return NextResponse.json({ error: "weekLabel 格式必須為 YYYY-WNN" }, { status: 400 });
+  }
+  const weekLabel: string = rawWeekLabel;
+
+  const toNonNegNum = (v: unknown): number => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  const adCost = toNonNegNum(body.adCost);
+  const shippingCost = toNonNegNum(body.shippingCost);
+  const packagingCost = toNonNegNum(body.packagingCost);
+  const otherCost = toNonNegNum(body.otherCost);
+  const notes = body.notes ? String(body.notes).slice(0, 500) : null;
+  const totalCost = adCost + shippingCost + packagingCost + otherCost;
 
   const existing = await db
     .select({ id: schema.weeklyCosts.id })

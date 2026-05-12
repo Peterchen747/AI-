@@ -3,8 +3,10 @@ import { db, schema } from "@/db";
 import { and, desc, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/auth";
+import { ensureSchema } from "@/db/ensure-schema";
 
 export async function GET() {
+  await ensureSchema();
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
@@ -18,6 +20,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  await ensureSchema();
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  await ensureSchema();
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
