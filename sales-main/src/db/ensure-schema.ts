@@ -70,9 +70,16 @@ async function runEnsureSchema() {
       name TEXT,
       email TEXT UNIQUE,
       emailVerified INTEGER,
-      image TEXT
+      image TEXT,
+      password TEXT
     )
   `);
+
+  const userTableInfo = await client.execute("PRAGMA table_info(user)");
+  const userColumns = userTableInfo.rows as ColumnInfoRow[];
+  if (!hasColumn(userColumns, "password")) {
+    await client.execute("ALTER TABLE user ADD COLUMN password TEXT");
+  }
 
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS account (
@@ -108,13 +115,7 @@ async function runEnsureSchema() {
     )
   `);
 
-  // Ensure demo user exists
-  const DEMO_USER_ID = "demo-user-001";
-  await client.execute(
-    `INSERT OR IGNORE INTO user (id, name, email) VALUES ('${DEMO_USER_ID}', 'Demo User', 'demo@localhost')`
-  );
-
-  // Add user_id columns for data isolation (assign existing rows to demo user)
+  // Add user_id columns for data isolation
   const tables = [
     "categories",
     "items",
@@ -129,9 +130,6 @@ async function runEnsureSchema() {
     if (!hasColumn(info.rows as ColumnInfoRow[], "user_id")) {
       await client.execute(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
     }
-    await client.execute(
-      `UPDATE ${table} SET user_id = '${DEMO_USER_ID}' WHERE user_id IS NULL`
-    );
   }
 }
 

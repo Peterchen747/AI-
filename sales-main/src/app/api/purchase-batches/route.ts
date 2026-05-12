@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { db } from "@/db";
 import { purchaseBatches, items } from "@/db/schema";
-import { DEMO_USER_ID } from "@/lib/mock-session";
+import { auth } from "@/auth";
 
 export async function GET(request: NextRequest) {
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const itemIdParam = request.nextUrl.searchParams.get("itemId");
   const filters = [eq(purchaseBatches.userId, userId)];
@@ -27,7 +29,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const { itemId, purchaseDate, totalQty, totalCost, notes } = await request.json();
   const unitCost = Math.round(totalCost / totalQty);

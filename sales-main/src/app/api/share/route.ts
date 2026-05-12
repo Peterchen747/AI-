@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { and, desc, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { DEMO_USER_ID } from "@/lib/mock-session";
+import { auth } from "@/auth";
 
 export async function GET() {
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const rows = await db
     .select()
@@ -16,7 +18,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const body = await request.json();
   const label = (body?.label ?? "").toString().trim() || null;
@@ -29,7 +33,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));

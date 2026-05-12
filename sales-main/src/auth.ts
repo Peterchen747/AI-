@@ -1,8 +1,11 @@
 import NextAuth from "next-auth";
-import Resend from "next-auth/providers/resend";
+import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { ensureSchema } from "@/db/ensure-schema";
+import bcrypt from "bcryptjs";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -13,6 +16,7 @@ const PROTECTED_PREFIXES = [
   "/weekly-costs",
   "/alerts",
   "/share",
+  "/admin",
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
@@ -21,9 +25,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
     adapter: DrizzleAdapter(db),
     session: { strategy: "database", maxAge: 60 * 60 * 24 * 30 },
     providers: [
-      Resend({
-        apiKey: process.env.RESEND_API_KEY,
-        from: process.env.AUTH_RESEND_FROM ?? "onboarding@resend.dev",
+      Credentials({
+        credentials: {
+          email: { label: "Email", type: "email" },
+          password: { label: "Password", type: "password" },
+        },
+        async authorize(credentials) {
+          if (!credentials?.email || !credentials?.password) return null;
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, String(credentials.email)))
+            .limit(1);
+          if (!user?.password) return null;
+          const valid = await bcrypt.compare(
+            String(credentials.password),
+            user.password
+          );
+          if (!valid) return null;
+          return { id: user.id, name: user.name, email: user.email };
+        },
       }),
     ],
     pages: {
@@ -32,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
     callbacks: {
       authorized({ auth: session, request }) {
         const { pathname } = request.nextUrl;
+        if (pathname === "/login") return true;
         const isProtected = PROTECTED_PREFIXES.some(
           (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
         );

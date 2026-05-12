@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Sidebar } from "@/components/layout/sidebar";
+import { auth } from "@/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,18 +21,25 @@ export const metadata: Metadata = {
   description: "手鐲玉髓成本計算與銷售分析",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  const isAdmin = session?.user?.email === process.env.ADMIN_EMAIL;
+
   return (
     <html
       lang="zh-TW"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full flex">
-        <AppShell sidebar={<Sidebar />}>{children}</AppShell>
+        {session?.user ? (
+          <AppShell sidebar={<Sidebar isAdmin={isAdmin} />}>{children}</AppShell>
+        ) : (
+          <main className="flex-1">{children}</main>
+        )}
         <Toaster richColors position="top-right" />
       </body>
     </html>

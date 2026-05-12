@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, like } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
-import { DEMO_USER_ID } from "@/lib/mock-session";
+import { auth } from "@/auth";
 
 export async function GET(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const url = new URL(request.url);
   const yearParam = url.searchParams.get("year");
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const body = await request.json();
   const { weekLabel, adCost, shippingCost, packagingCost, otherCost, notes } = body;

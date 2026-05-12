@@ -14,12 +14,16 @@ const navItems = [
   { href: "/share", label: "分享", icon: "🔗" },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+
+  const items = isAdmin
+    ? [...navItems, { href: "/admin", label: "使用者管理", icon: "👤" }]
+    : navItems;
 
   return (
     <nav className="flex-1 p-2 space-y-1">
-      {navItems.map((item) => {
+      {items.map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(item.href + "/");
         return (

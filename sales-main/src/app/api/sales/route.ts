@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, gte, like, lte, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
-import { DEMO_USER_ID } from "@/lib/mock-session";
+import { auth } from "@/auth";
 
 type SalePayload = {
   itemId: number;
@@ -30,7 +30,9 @@ function isValidDateString(value: string) {
 
 export async function GET(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month");
@@ -91,7 +93,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   let body: unknown;
   try {
@@ -315,7 +319,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
@@ -365,7 +371,9 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   await ensureSchema();
-  const userId = DEMO_USER_ID;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
