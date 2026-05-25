@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Alert = {
   type: string;
@@ -31,6 +32,7 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/alerts")
@@ -52,15 +54,15 @@ export default function AlertsPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">警示中心</h1>
 
-      {/* AI upgrade banner */}
+      {/* AI banner */}
       <div className="mb-6 rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-blue-800 text-sm flex gap-3 items-start">
         <span className="text-lg mt-0.5">🤖</span>
         <div>
-          <p className="font-semibold">目前採用規則引擎分析</p>
+          <p className="font-semibold">AI 財務顧問已整合</p>
           <p className="mt-0.5 text-blue-700">
-            警示邏輯由預設規則判斷（如廣告費率、庫存閾值、月比月變化）。
+            警示由規則引擎產生，AI 顧問可讀取您的真實財務資料來解釋原因與提供建議。
             <br />
-            <span className="font-medium">下一版將整合 AI 大型語言模型</span>，自動識別異常趨勢、提供原因推測與行動建議，讓分析更智慧。
+            點擊各警示的「詢問 AI」，或直接點擊右下角 🤖 開啟對話。
           </p>
         </div>
       </div>
@@ -99,6 +101,18 @@ export default function AlertsPage() {
                   <span className="font-semibold">{alert.title}</span>
                 </div>
                 <p className="text-sm">{alert.detail}</p>
+                <button
+                  onClick={() =>
+                    router.push(
+                      `?ai-question=${encodeURIComponent(
+                        `請解釋這個警示並給我建議：${alert.title}。${alert.detail}`
+                      )}`
+                    )
+                  }
+                  className="mt-2 text-xs font-medium opacity-70 hover:opacity-100 underline underline-offset-2 transition-opacity"
+                >
+                  詢問 AI ↗
+                </button>
               </div>
             ))}
           </div>

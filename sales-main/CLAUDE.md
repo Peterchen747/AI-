@@ -19,9 +19,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AI 財務助手**：幫透過 LINE/IG 賣飾品的小賣家，追蹤銷售收入與隱藏成本，算出真正的每月淨利。
 
-程式碼在 `sales-main/`，單一使用者、本地 SQLite 資料庫、無登入機制。
+程式碼在 `sales-main/`，多租戶 SaaS 架構，NextAuth Credentials 登入（帳號密碼），本地 SQLite 資料庫。
 
-**目前狀態（MVP）：** 銷售記錄、分類管理、毛利計算已完成；**P0 待做：** 批次進貨成本 + 每週廣告/運費整合進淨利計算。
+**目前狀態（2026-05）：** P0 全部完成——進貨批次、每週成本、真實淨利計算、用戶帳號、多租戶隔離、警示中心、財務分析、月度 PDF API 均已上線。**待做：** 手機 RWD 優化、分析頁 PDF 下載按鈕、Email 提醒、Turso 雲端遷移、付費方案。
 
 ---
 

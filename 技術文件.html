@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: "Microsoft JhengHei", Arial, sans-serif; font-size: 11pt; line-height: 1.6; margin: 40px; color: #222; }
+  h1 { font-size: 20pt; color: #1a3c6e; border-bottom: 3px solid #1a3c6e; padding-bottom: 6px; margin-top: 30px; }
+  h2 { font-size: 15pt; color: #2e6da4; border-bottom: 1px solid #aac4e0; padding-bottom: 4px; margin-top: 24px; }
+  h3 { font-size: 12pt; color: #3a3a3a; margin-top: 16px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th { background-color: #2e6da4; color: white; padding: 8px 12px; text-align: left; font-size: 10pt; }
+  td { border: 1px solid #ccc; padding: 7px 12px; font-size: 10pt; vertical-align: top; }
+  tr:nth-child(even) td { background-color: #f2f7fd; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-family: Consolas, monospace; font-size: 10pt; }
+  pre { background: #f4f4f4; padding: 12px; border-left: 4px solid #2e6da4; font-family: Consolas, monospace; font-size: 9.5pt; overflow-x: auto; line-height: 1.4; }
+  .badge-done { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 10px; font-size: 9pt; }
+  .badge-todo { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; font-size: 9pt; }
+  .badge-risk { background: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 10px; font-size: 9pt; }
+  .info-box { background: #e8f4fd; border-left: 4px solid #2e6da4; padding: 10px 16px; margin: 12px 0; }
+  .warn-box { background: #fff8e1; border-left: 4px solid #f0ad4e; padding: 10px 16px; margin: 12px 0; }
+  ul li { margin-bottom: 4px; }
+  .cover { text-align: center; padding: 60px 0 40px 0; }
+  .cover h1 { font-size: 28pt; border: none; color: #1a3c6e; }
+  .cover .subtitle { font-size: 14pt; color: #555; margin-top: 8px; }
+  .cover .meta { font-size: 10pt; color: #888; margin-top: 30px; }
+  .toc a { color: #2e6da4; text-decoration: none; }
+  .toc li { margin-bottom: 6px; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>AI 財務助手 — 技術文件</h1>
+  <div class="subtitle">Sales Tracker 系統完整技術說明</div>
+  <div class="meta">
+    專案負責人：Peter Chen<br>
+    文件版本：v1.0<br>
+    建立日期：2026-04-17
+  </div>
+</div>
+
+<hr>
+
+<h1>目錄</h1>
+<ul class="toc">
+  <li><a href="#s1">1. 專案簡介</a></li>
+  <li><a href="#s2">2. 技術架構總覽</a></li>
+  <li><a href="#s3">3. 登入機制</a></li>
+  <li><a href="#s4">4. 資料庫設計</a></li>
+  <li><a href="#s5">5. 功能模組說明</a></li>
+  <li><a href="#s6">6. API 端點一覽</a></li>
+  <li><a href="#s7">7. 部署環境與設定</a></li>
+  <li><a href="#s8">8. 完成狀態</a></li>
+  <li><a href="#s9">9. 已知限制與風險</a></li>
+  <li><a href="#s10">10. 給使用者的操作說明</a></li>
+</ul>
+
+<hr>
+
+<!-- ==================== SECTION 1 ==================== -->
+<h1 id="s1">1. 專案簡介</h1>
+
+<p>
+  AI 財務助手是一套專為 LINE / Instagram 飾品小賣家設計的財務追蹤系統。目標是協助賣家清楚掌握銷售收入、進貨成本、每週廣告/運費，最終精算出真實的每月淨利。
+</p>
+
+<table>
+  <tr><th>項目</th><th>說明</th></tr>
+  <tr><td>系統名稱</td><td>AI 財務助手 / Sales Tracker</td></tr>
+  <tr><td>目標使用者</td><td>LINE / IG 飾品賣家（個人小賣場）</td></tr>
+  <tr><td>資料庫位置</td><td>雲端（Turso，亞太區 AWS ap-northeast-1）</td></tr>
+  <tr><td>登入方式</td><td>Magic Link 電子郵件（無密碼）</td></tr>
+  <tr><td>當前狀態</td><td>MVP 完成，可正式使用</td></tr>
+  <tr><td>程式碼位置</td><td><code>c:\AI 財務助手\sales-main\</code></td></tr>
+</table>
+
+<!-- ==================== SECTION 2 ==================== -->
+<h1 id="s2">2. 技術架構總覽</h1>
+
+<h2>2.1 技術棧</h2>
+<table>
+  <tr><th>層級</th><th>技術</th><th>版本</th><th>說明</th></tr>
+  <tr><td>前端框架</td><td>Next.js (App Router)</td><td>16.2.2</td><td>React 全端框架，伺服器元件 + 客戶端元件混合</td></tr>
+  <tr><td>前端語言</td><td>React + TypeScript</td><td>React 19 / TS 5</td><td>強型別，減少 runtime 錯誤</td></tr>
+  <tr><td>樣式</td><td>Tailwind CSS + shadcn/ui</td><td>v4</td><td>UI 元件庫（Button、Dialog、Card 等）</td></tr>
+  <tr><td>圖表</td><td>Recharts</td><td>3.8.1</td><td>Revenue 趨勢圖、分類績效圖</td></tr>
+  <tr><td>資料庫</td><td>Turso（雲端 SQLite）</td><td>—</td><td>資料存在雲端，本地開發也可用本地 .db 檔</td></tr>
+  <tr><td>ORM</td><td>Drizzle ORM</td><td>0.45.2</td><td>型別安全的 SQL 查詢</td></tr>
+  <tr><td>登入驗證</td><td>NextAuth.js v5 (Auth.js)</td><td>5.0.0-beta.31</td><td>Session 存在資料庫，30 天有效</td></tr>
+  <tr><td>寄信服務</td><td>Resend</td><td>6.12.0</td><td>發送 Magic Link 電子郵件</td></tr>
+  <tr><td>表單驗證</td><td>react-hook-form + Zod</td><td>7.72 / 4.3.6</td><td>表單狀態管理與驗證</td></tr>
+  <tr><td>Toast 通知</td><td>Sonner</td><td>2.0.7</td><td>操作成功/失敗的彈出通知</td></tr>
+  <tr><td>PDF 報告</td><td>@react-pdf/renderer</td><td>4.5.1</td><td>匯出月報 PDF</td></tr>
+  <tr><td>部署平台</td><td>Vercel</td><td>—</td><td>自動 CI/CD，推送即部署</td></tr>
+</table>
+
+<h2>2.2 專案目錄結構</h2>
+<pre>
+sales-main/
+├── src/
+│   ├── app/
+│   │   ├── api/              ← 所有後端 API（REST）
+│   │   │   ├── alerts/       ← 警示系統
+│   │   │   ├── categories/   ← 商品分類 CRUD
+│   │   │   ├── inventory/    ← 庫存紀錄 CRUD
+│   │   │   ├── items/        ← 商品 CRUD
+│   │   │   ├── purchase-batches/ ← 進貨批次 CRUD
+│   │   │   ├── sales/        ← 銷售紀錄 CRUD
+│   │   │   ├── weekly-costs/ ← 每週成本 CRUD
+│   │   │   ├── share/        ← 分享連結管理
+│   │   │   ├── report/       ← PDF 月報匯出
+│   │   │   └── auth/         ← NextAuth 登入處理
+│   │   ├── dashboard/        ← 主儀表板頁面
+│   │   ├── sales/            ← 銷售管理頁面
+│   │   ├── categories/       ← 分類管理頁面
+│   │   ├── inventory/        ← 庫存管理頁面
+│   │   ├── purchase-batches/ ← 進貨批次頁面
+│   │   ├── weekly-costs/     ← 每週成本頁面
+│   │   ├── alerts/           ← 警示頁面
+│   │   ├── share/            ← 分享設定 + 公開分享頁
+│   │   └── login/            ← 登入頁面
+│   ├── components/           ← React 元件
+│   ├── db/
+│   │   ├── schema.ts         ← 資料表結構定義
+│   │   ├── index.ts          ← 資料庫連線
+│   │   └── ensure-schema.ts  ← 自動建表 / migration
+│   ├── lib/
+│   │   ├── calculations.ts   ← 利潤計算邏輯
+│   │   └── week-utils.ts     ← ISO 週工具
+│   └── auth.ts               ← NextAuth 設定
+├── docs/                     ← 開發文件
+├── .env.local                ← 環境變數（不上傳 git）
+├── package.json
+└── drizzle.config.ts         ← 資料庫 migration 設定
+</pre>
+
+<!-- ==================== SECTION 3 ==================== -->
+<h1 id="s3">3. 登入機制</h1>
+
+<h2>3.1 Magic Link 無密碼登入</h2>
+<div class="info-box">
+  本系統採用「Magic Link」登入方式：使用者輸入 Email，系統寄送一次性連結，點擊即可登入，<b>不需要密碼</b>。
+</div>
+
+<h3>完整登入流程</h3>
+<table>
+  <tr><th>步驟</th><th>動作</th><th>技術細節</th></tr>
+  <tr><td>1</td><td>使用者在 <code>/login</code> 頁面輸入 Email</td><td>React 表單送出</td></tr>
+  <tr><td>2</td><td>系統透過 Resend 寄送 Magic Link Email</td><td>連結有效期：10 分鐘</td></tr>
+  <tr><td>3</td><td>使用者點擊 Email 中的連結</td><td>同一瀏覽器或新瀏覽器均可</td></tr>
+  <tr><td>4</td><td>NextAuth 驗證 Token，在資料庫建立 Session</td><td>Session 有效期：30 天</td></tr>
+  <tr><td>5</td><td>自動跳轉至 <code>/dashboard</code></td><td>Middleware 保護路由</td></tr>
+</table>
+
+<h3>Session 管理</h3>
+<table>
+  <tr><th>項目</th><th>說明</th></tr>
+  <tr><td>Session 儲存位置</td><td>資料庫（Turso）的 <code>session</code> 資料表</td></tr>
+  <tr><td>Session 有效期</td><td>30 天（自動延續）</td></tr>
+  <tr><td>登出方式</td><td>目前未實作登出按鈕（30 天後自動失效）</td></tr>
+</table>
+
+<h3>受保護的頁面</h3>
+<p>以下頁面需要登入才能存取，未登入會自動跳轉至 <code>/login</code>：</p>
+<ul>
+  <li><code>/dashboard</code> — 主儀表板</li>
+  <li><code>/sales</code> — 銷售記錄</li>
+  <li><code>/categories</code> — 商品分類</li>
+  <li><code>/inventory</code> — 庫存管理</li>
+  <li><code>/purchase-batches</code> — 進貨批次</li>
+  <li><code>/weekly-costs</code> — 每週成本</li>
+  <li><code>/alerts</code> — 警示</li>
+  <li><code>/share</code> — 分享設定</li>
+</ul>
+
+<h3>公開頁面（不需登入）</h3>
+<ul>
+  <li><code>/login</code> — 登入頁面</li>
+  <li><code>/share/[token]</code> — 投資人專用公開儀表板（只讀，不需帳號）</li>
+</ul>
+
+<!-- ==================== SECTION 4 ==================== -->
+<h1 id="s4">4. 資料庫設計</h1>
+
+<h2>4.1 資料庫位置</h2>
+<table>
+  <tr><th>環境</th><th>位置</th></tr>
+  <tr><td>正式環境（Production）</td><td>Turso 雲端 SQLite — <code>libsql://sales-tracker-peterchen747.aws-ap-northeast-1.turso.io</code></td></tr>
+  <tr><td>本地開發</td><td>本機 SQLite 檔案 <code>sales-main/sales-tracker.db</code>（若無雲端連線）</td></tr>
+</table>
+
+<div class="info-box">
+  所有正式資料均存在 <b>Turso 雲端</b>，自動備份，亞太區節點（日本），台灣連線速度快。
+</div>
+
+<h2>4.2 資料表總覽（10 張表）</h2>
+<table>
+  <tr><th>資料表</th><th>中文名稱</th><th>用途</th></tr>
+  <tr><td><code>categories</code></td><td>商品分類</td><td>飾品種類（如：耳環、項鍊）</td></tr>
+  <tr><td><code>items</code></td><td>商品</td><td>具體商品，屬於某個分類</td></tr>
+  <tr><td><code>sales</code></td><td>銷售紀錄</td><td>每一筆銷售交易</td></tr>
+  <tr><td><code>inventoryRecords</code></td><td>庫存批次（舊系統）</td><td>舊版進貨成本追蹤</td></tr>
+  <tr><td><code>purchaseBatches</code></td><td>進貨批次（新系統）</td><td>新版進貨批次，追蹤剩餘數量</td></tr>
+  <tr><td><code>weeklyCosts</code></td><td>每週成本</td><td>廣告費、運費、包材費、其他</td></tr>
+  <tr><td><code>shareTokens</code></td><td>分享連結</td><td>給投資人的公開唯讀連結</td></tr>
+  <tr><td><code>user</code></td><td>使用者（NextAuth）</td><td>登入帳戶資料</td></tr>
+  <tr><td><code>session</code></td><td>Session（NextAuth）</td><td>登入 Session Token</td></tr>
+  <tr><td><code>verificationToken</code></td><td>驗證 Token（NextAuth）</td><td>Magic Link Token</td></tr>
+</table>
+
+<h2>4.3 主要資料表欄位</h2>
+
+<h3>categories（商品分類）</h3>
+<table>
+  <tr><th>欄位</th><th>型別</th><th>說明</th></tr>
+  <tr><td>id</td><td>INTEGER PK</td><td>自動編號</td></tr>
+  <tr><td>name</td><td>TEXT</td><td>分類名稱（必填）</td></tr>
+  <tr><td>description</td><td>TEXT</td><td>說明（可空）</td></tr>
+  <tr><td>isActive</td><td>INTEGER</td><td>1=啟用，0=已封存</td></tr>
+  <tr><td>createdAt / updatedAt</td><td>TEXT</td><td>時間戳記</td></tr>
+</table>
+
+<h3>items（商品）</h3>
+<table>
+  <tr><th>欄位</th><th>型別</th><th>說明</th></tr>
+  <tr><td>id</td><td>INTEGER PK</td><td>自動編號</td></tr>
+  <tr><td>categoryId</td><td>INTEGER FK</td><td>所屬分類</td></tr>
+  <tr><td>name</td><td>TEXT</td><td>商品名稱</td></tr>
+  <tr><td>typicalCost</td><td>INTEGER</td><td>典型成本（元，整數）</td></tr>
+  <tr><td>typicalPrice</td><td>INTEGER</td><td>典型售價</td></tr>
+  <tr><td>isActive</td><td>INTEGER</td><td>1=啟用，0=封存</td></tr>
+</table>
+
+<h3>sales（銷售紀錄）</h3>
+<table>
+  <tr><th>欄位</th><th>型別</th><th>說明</th></tr>
+  <tr><td>id</td><td>INTEGER PK</td><td>自動編號</td></tr>
+  <tr><td>itemId</td><td>INTEGER FK</td><td>銷售的商品</td></tr>
+  <tr><td>purchaseBatchId</td><td>INTEGER FK</td><td>對應的進貨批次（新系統）</td></tr>
+  <tr><td>cost</td><td>INTEGER</td><td>這筆銷售的實際成本/件</td></tr>
+  <tr><td>actualPrice</td><td>INTEGER</td><td>實際售價/件</td></tr>
+  <tr><td>qty</td><td>INTEGER</td><td>數量（預設 1）</td></tr>
+  <tr><td>saleDate</td><td>TEXT</td><td>銷售日期（YYYY-MM-DD）</td></tr>
+  <tr><td>notes</td><td>TEXT</td><td>備註</td></tr>
+  <tr><td>imageUrl</td><td>TEXT</td><td>商品圖片 URL</td></tr>
+</table>
+
+<h3>purchaseBatches（進貨批次）</h3>
+<table>
+  <tr><th>欄位</th><th>型別</th><th>說明</th></tr>
+  <tr><td>id</td><td>INTEGER PK</td><td>自動編號</td></tr>
+  <tr><td>itemId</td><td>INTEGER FK</td><td>此批次的商品</td></tr>
+  <tr><td>purchaseDate</td><td>TEXT</td><td>進貨日期</td></tr>
+  <tr><td>totalQty</td><td>INTEGER</td><td>進貨總數量</td></tr>
+  <tr><td>remainingQty</td><td>INTEGER</td><td>剩餘庫存量（銷售時自動扣減）</td></tr>
+  <tr><td>totalCost</td><td>INTEGER</td><td>這批次總成本</td></tr>
+  <tr><td>unitCost</td><td>INTEGER</td><td>單件成本（自動計算：totalCost÷totalQty）</td></tr>
+  <tr><td>notes</td><td>TEXT</td><td>備註</td></tr>
+</table>
+
+<h3>weeklyCosts（每週成本）</h3>
+<table>
+  <tr><th>欄位</th><th>型別</th><th>說明</th></tr>
+  <tr><td>weekLabel</td><td>TEXT</td><td>ISO 週標籤，如 2026-W15</td></tr>
+  <tr><td>adCost</td><td>INTEGER</td><td>廣告費</td></tr>
+  <tr><td>shippingCost</td><td>INTEGER</td><td>運費</td></tr>
+  <tr><td>packagingCost</td><td>INTEGER</td><td>包材費</td></tr>
+  <tr><td>otherCost</td><td>INTEGER</td><td>其他費用</td></tr>
+  <tr><td>totalCost</td><td>INTEGER</td><td>合計（自動計算）</td></tr>
+</table>
+
+<h2>4.4 利潤計算邏輯</h2>
+<table>
+  <tr><th>指標</th><th>計算公式</th></tr>
+  <tr><td>營收（Revenue）</td><td>SUM( actualPrice × qty ) — 該月所有銷售</td></tr>
+  <tr><td>銷售成本（COGS）</td><td>SUM( cost × qty ) — 對應進貨成本</td></tr>
+  <tr><td>毛利（Gross Profit）</td><td>營收 − 銷售成本</td></tr>
+  <tr><td>毛利率</td><td>毛利 ÷ 營收 × 100%</td></tr>
+  <tr><td>每週成本（Operating Costs）</td><td>SUM( weeklyCosts.totalCost ) — 該月所有週的廣告+運費+包材+其他</td></tr>
+  <tr><td>淨利（Net Profit）</td><td>毛利 − 每週成本</td></tr>
+  <tr><td>淨利率</td><td>淨利 ÷ 營收 × 100%</td></tr>
+</table>
+
+<div class="info-box">
+  <b>注意：</b>所有金額以新台幣整數儲存（無小數點）。例如：成本 45 元 → 存為整數 45。
+</div>
+
+<!-- ==================== SECTION 5 ==================== -->
+<h1 id="s5">5. 功能模組說明</h1>
+
+<table>
+  <tr><th>功能模組</th><th>頁面路徑</th><th>說明</th></tr>
+  <tr><td>主儀表板</td><td><code>/dashboard</code></td><td>當月 KPI（營收/毛利/淨利）、趨勢圖、分類績效、智慧建議</td></tr>
+  <tr><td>銷售管理</td><td><code>/sales</code></td><td>列出所有銷售記錄，可依月份/分類/關鍵字篩選；匯出 PDF</td></tr>
+  <tr><td>新增銷售</td><td><code>/sales/new</code></td><td>手動新增銷售，可選對應進貨批次</td></tr>
+  <tr><td>商品分類</td><td><code>/categories</code></td><td>新增/編輯/封存商品分類</td></tr>
+  <tr><td>進貨批次</td><td><code>/purchase-batches</code></td><td>記錄每次進貨（數量+總成本），自動追蹤剩餘庫存</td></tr>
+  <tr><td>庫存管理</td><td><code>/inventory</code></td><td>舊版庫存批次管理（可並用）</td></tr>
+  <tr><td>每週成本</td><td><code>/weekly-costs</code></td><td>輸入每週廣告費、運費、包材費等間接成本</td></tr>
+  <tr><td>警示系統</td><td><code>/alerts</code></td><td>自動提醒：廣告費占比過高、庫存不足、未輸入成本、近期無銷售</td></tr>
+  <tr><td>分享連結</td><td><code>/share</code></td><td>產生公開連結給投資人，只讀、無需帳號</td></tr>
+  <tr><td>月報 PDF</td><td>從儀表板下載</td><td>含 KPI 摘要的月報 PDF</td></tr>
+</table>
+
+<h2>5.1 警示類型說明</h2>
+<table>
+  <tr><th>警示代碼</th><th>觸發條件</th><th>嚴重度</th></tr>
+  <tr><td>ad_cost_high</td><td>當月廣告費 &gt; 30% 營收</td><td>高</td></tr>
+  <tr><td>low_inventory</td><td>某進貨批次剩餘數量 ≤ 3</td><td>中</td></tr>
+  <tr><td>no_weekly_costs</td><td>當月有銷售但未輸入任何週成本</td><td>中</td></tr>
+  <tr><td>no_recent_sales</td><td>最近 7 天無任何銷售記錄</td><td>低</td></tr>
+</table>
+
+<!-- ==================== SECTION 6 ==================== -->
+<h1 id="s6">6. API 端點一覽</h1>
+
+<table>
+  <tr><th>端點</th><th>方法</th><th>功能</th></tr>
+  <tr><td><code>/api/categories</code></td><td>GET/POST/PUT/DELETE</td><td>商品分類 CRUD</td></tr>
+  <tr><td><code>/api/items</code></td><td>GET/POST/PUT/DELETE</td><td>商品 CRUD</td></tr>
+  <tr><td><code>/api/sales</code></td><td>GET/POST/PATCH/DELETE</td><td>銷售記錄 CRUD，支援批次新增（最多 500 筆）</td></tr>
+  <tr><td><code>/api/inventory</code></td><td>GET/POST/PATCH/DELETE</td><td>庫存批次（舊系統）CRUD</td></tr>
+  <tr><td><code>/api/purchase-batches</code></td><td>GET/POST</td><td>進貨批次管理</td></tr>
+  <tr><td><code>/api/purchase-batches/[id]</code></td><td>PUT/DELETE</td><td>修改/刪除特定進貨批次</td></tr>
+  <tr><td><code>/api/weekly-costs</code></td><td>GET/POST</td><td>每週成本（Upsert，同週更新）</td></tr>
+  <tr><td><code>/api/alerts</code></td><td>GET</td><td>取得目前所有警示</td></tr>
+  <tr><td><code>/api/share</code></td><td>GET/POST/DELETE</td><td>分享 Token 管理</td></tr>
+  <tr><td><code>/api/report/[year]/[month]</code></td><td>GET</td><td>下載月報 PDF</td></tr>
+  <tr><td><code>/api/auth/[...nextauth]</code></td><td>GET/POST</td><td>NextAuth 登入流程（系統內部使用）</td></tr>
+</table>
+
+<!-- ==================== SECTION 7 ==================== -->
+<h1 id="s7">7. 部署環境與設定</h1>
+
+<h2>7.1 部署平台</h2>
+<p>系統部署在 <b>Vercel</b> 平台，推送程式碼至 GitHub 即自動部署。</p>
+
+<h2>7.2 必要環境變數</h2>
+<table>
+  <tr><th>環境變數</th><th>說明</th><th>取得方式</th></tr>
+  <tr><td><code>TURSO_CONNECTION_URL</code></td><td>Turso 資料庫連線 URL</td><td>Turso 後台</td></tr>
+  <tr><td><code>TURSO_AUTH_TOKEN</code></td><td>Turso 認證 Token</td><td>Turso 後台</td></tr>
+  <tr><td><code>AUTH_SECRET</code></td><td>NextAuth 簽名金鑰（隨機字串）</td><td>自行產生</td></tr>
+  <tr><td><code>AUTH_URL</code></td><td>部署後的完整網址（如 https://xxx.vercel.app）</td><td>Vercel 部署後取得</td></tr>
+  <tr><td><code>RESEND_API_KEY</code></td><td>Resend 郵件服務 API Key</td><td>resend.com 後台</td></tr>
+  <tr><td><code>AUTH_RESEND_FROM</code></td><td>寄信的發件人 Email</td><td>需在 Resend 驗證的網域/信箱</td></tr>
+</table>
+
+<h2>7.3 本地開發指令</h2>
+<pre>
+npm run dev      # 啟動開發伺服器（http://localhost:3000）
+npm run build    # 生產環境建置
+npm run start    # 啟動生產伺服器
+npm run lint     # ESLint 語法檢查
+npm test         # 執行測試（36 個測試，目前全部通過）
+</pre>
+
+<!-- ==================== SECTION 8 ==================== -->
+<h1 id="s8">8. 完成狀態</h1>
+
+<table>
+  <tr><th>功能</th><th>狀態</th></tr>
+  <tr><td>Magic Link 電子郵件登入</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>銷售記錄管理（手動新增、編輯、刪除）</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>商品與分類管理</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>進貨批次 + 庫存追蹤</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>每週廣告/運費/成本記錄</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>儀表板（營收、毛利、淨利、趨勢圖）</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>分類績效分析</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>智慧建議（趨勢偵測）</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>警示系統（4 種警示）</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>投資人公開分享連結</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>月報 PDF 匯出</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>手機響應式設計</td><td><span class="badge-done">✅ 完成</span></td></tr>
+  <tr><td>自動化測試（36 個測試）</td><td><span class="badge-done">✅ 全部通過</span></td></tr>
+  <tr><td>截圖 OCR 自動辨識進貨資料</td><td><span class="badge-todo">⏳ 未完成</span></td></tr>
+  <tr><td>多使用者資料隔離</td><td><span class="badge-todo">⏳ 未完成</span></td></tr>
+  <tr><td>匯出 Excel</td><td><span class="badge-todo">⏳ 未完成</span></td></tr>
+</table>
+
+<!-- ==================== SECTION 9 ==================== -->
+<h1 id="s9">9. 已知限制與風險</h1>
+
+<div class="warn-box">
+  <b>⚠️ 最重要限制：目前系統是「單一使用者」設計</b><br>
+  資料表中沒有 userId 欄位，所有登入帳號都會看到並共用同一份資料。如果未來要多人獨立使用，需要加入使用者資料隔離機制（P1 改版）。
+</div>
+
+<table>
+  <tr><th>限制/風險</th><th>嚴重度</th><th>影響</th></tr>
+  <tr><td>單一使用者設計（無資料隔離）</td><td><span class="badge-risk">高</span></td><td>目前適合夫妻共用同帳號，不適合多個獨立用戶</td></tr>
+  <tr><td>無登出按鈕</td><td><span class="badge-todo">低</span></td><td>Session 30 天後自動過期，或清除 Cookie 登出</td></tr>
+  <tr><td>銷售列表無分頁</td><td><span class="badge-todo">低</span></td><td>資料量大時（>1000 筆）可能略慢</td></tr>
+  <tr><td>無離線模式</td><td><span class="badge-todo">低</span></td><td>需要網路連線才能使用</td></tr>
+  <tr><td>OCR 截圖辨識未實作</td><td><span class="badge-todo">低</span></td><td>無法自動從 LINE 截圖匯入訂單，需手動輸入</td></tr>
+  <tr><td>分享連結未強制檢查到期時間</td><td><span class="badge-todo">低</span></td><td>目前分享連結永不過期</td></tr>
+</table>
+
+<!-- ==================== SECTION 10 ==================== -->
+<h1 id="s10">10. 給使用者的操作說明</h1>
+
+<h2>10.1 首次登入</h2>
+<ol>
+  <li>開啟瀏覽器，前往系統網址（Vercel 部署的網址）</li>
+  <li>輸入你的 Email，按下「寄送登入連結」</li>
+  <li>打開信箱，找到 AI 財務助手寄來的郵件，點擊連結</li>
+  <li>自動跳轉至儀表板，完成登入</li>
+  <li><b>下次登入：</b>重複上述步驟（無密碼，每次點新的連結）</li>
+</ol>
+
+<div class="info-box">
+  Magic Link 有效期為 <b>10 分鐘</b>，超時需要重新申請。Session 登入後維持 <b>30 天</b>，不需頻繁重新登入。
+</div>
+
+<h2>10.2 每日記帳流程（建議）</h2>
+<ol>
+  <li><b>有賣出東西時</b>→ <code>/sales/new</code> 新增銷售記錄（填入商品、售價、成本、日期）</li>
+  <li><b>有進新貨時</b> → <code>/purchase-batches</code> 新增進貨批次（填入商品、數量、總成本）</li>
+  <li><b>每週一次</b> → <code>/weekly-costs</code> 輸入當週廣告費、運費等費用</li>
+  <li><b>每月檢視</b> → <code>/dashboard</code> 查看本月營收、毛利、淨利</li>
+</ol>
+
+<h2>10.3 查看儀表板指標解說</h2>
+<table>
+  <tr><th>指標</th><th>意義</th></tr>
+  <tr><td>營收</td><td>這個月收進來的錢（售價 × 數量 合計）</td></tr>
+  <tr><td>毛利</td><td>扣掉進貨成本後的利潤</td></tr>
+  <tr><td>毛利率</td><td>毛利佔營收的比例</td></tr>
+  <tr><td>每週成本</td><td>廣告費 + 運費 + 包材 + 其他 的合計</td></tr>
+  <tr><td>淨利</td><td>毛利再扣掉每週成本後的真實利潤</td></tr>
+  <tr><td>淨利率</td><td>淨利佔營收的比例</td></tr>
+</table>
+
+<hr>
+
+<p style="text-align:center; color:#aaa; font-size:9pt; margin-top:40px;">
+  AI 財務助手 技術文件 v1.0 — 2026-04-17 — Peter Chen<br>
+  本文件由 Claude Code 自動生成
+</p>
+
+</body>
+</html>

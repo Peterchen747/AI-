@@ -1,5 +1,5 @@
 # 對話式訂單財務助手｜產品主框架文件
-**版本：1.0 | 日期：2026-04-14 | 狀態：框架確認中**
+**版本：1.3 | 日期：2026-05-13 | 狀態：第一階段完成，進入第二階段收尾**
 
 ---
 
@@ -12,6 +12,8 @@
 | 真實痛點存在（不知道真實淨利） | ✅ 已驗證 |
 | 用戶畫像清晰（飾品類聊天成交賣家） | ✅ 已定義 |
 | 用戶進貨模型已知（批次+單件） | ✅ 已知 |
+| 真實淨利計算邏輯已實作 | ✅ 2026-05 完成 |
+| 多租戶 SaaS 架構已轉型 | ✅ 2026-05 完成 |
 
 ### 現有技術棧（已確認，不需要更換）
 | 項目 | 技術 | 評估 |
@@ -19,41 +21,56 @@
 | 框架 | Next.js + TypeScript | ✅ 正確選擇，維持 |
 | UI | Tailwind CSS + shadcn/ui | ✅ 正確選擇，維持 |
 | ORM | Drizzle ORM | ✅ 正確選擇，維持 |
-| 資料庫 | SQLite (LibSQL) | ⚠️ 本地開發可以，商業化需遷移至 Turso 或 Supabase |
+| 資料庫 | SQLite (本地檔案) | ⚠️ 功能正常，商業化前需遷移至 Turso 雲端 |
 | 圖表 | Recharts | ✅ 維持 |
+| 認證 | NextAuth.js v5 + Credentials + bcrypt | ✅ 已完成，JWT session |
 
-### 現有資料庫 Schema（已確認）
+### 現有資料庫 Schema（2026-05 實際狀態）
 ```
-categories      ← 商品分類 ✅
-items           ← 商品主檔，有 typicalCost / typicalPrice ✅
-sales           ← 每筆銷售，有手動輸入的 cost + actualPrice ⚠️
-importBatches   ← ❌ 命名誤導：這是「截圖匯入佇列」不是「進貨批次」
-screenshots     ← OCR 截圖處理 ⚠️
-shareTokens     ← 分享連結 ✅
+categories        ← 商品分類，有 userId 多租戶欄位 ✅
+items             ← 商品主檔，有 userId、typicalCost / typicalPrice ✅
+sales             ← 每筆銷售，有 userId、purchaseBatchId（外鍵）、inventoryRecordId ✅
+purchaseBatches   ← 進貨批次，有 userId、unitCost 自動計算 ✅（P0 已完成）
+inventoryRecords  ← 庫存記錄，有 remainingQty 追蹤 ✅（框架外額外新增）
+weeklyCosts       ← 每週營運成本（廣告/運費/包材/其他），有 userId ✅（P0 已完成）
+shareTokens       ← 分享連結，有 userId ✅
+importBatches     ← OCR 截圖匯入佇列（非進貨批次，命名已知誤導）⚠️
+screenshots       ← OCR 截圖處理 ⚠️
+user              ← 用戶帳號（NextAuth）✅（P2 提前完成）
+account           ← OAuth 帳號（NextAuth）✅
+session           ← JWT session 表（NextAuth）✅
+verificationToken ← Email 驗證（NextAuth）✅
 ```
 
-### 現有功能清單與差距診斷
-| 功能 | 現狀 | 問題 | 需要的動作 |
-|------|------|------|-----------|
-| 商品分類管理 | ✅ 已做 | 無 | 維持 |
-| 銷售紀錄 | ✅ 已做 | 成本為手動輸入，無自動帶入 | 改為從進貨批次自動帶入單件成本 |
-| 批次截圖匯入 | ✅ 已做 | OCR 品質不穩定，非核心價值 | 降優先級，v2 再優化 |
-| 六個月圖表 | ✅ 已做 | 顯示的是「毛利」而非「淨利」（未扣廣告/運費/包材） | 加入每週營運成本後重新計算 |
-| **進貨批次管理** | ❌ 不存在 | `importBatches` 是 OCR 佇列，不是庫存進貨 | **新增 `purchaseBatches` 資料表，這是 P0** |
-| **庫存自動扣減** | ❌ 不存在 | 每筆銷售的成本是手動輸入 | **連結 purchaseBatches，自動帶入單件成本** |
-| **每週營運成本** | ❌ 不存在 | 廣告、運費、包材完全未追蹤 | **新增 `weeklyCosts` 資料表，這是 P0** |
-| **真實淨利計算** | ❌ 不存在 | 現在算的是不完整的毛利 | 毛利 - 每週營運成本 = 淨利 |
-| **隱藏成本警示** | ❌ 不存在 | — | 新增警示邏輯 |
-| **每週推播提醒** | ❌ 不存在 | — | v1 先做 email，v2 做推播 |
-| **月度 PDF 報告** | ❌ 不存在 | — | 商業化前必做 |
-| **用戶帳號系統** | ❌ 不存在 | 現在是單用戶本地工具 | 商業化前必做（NextAuth 或 Supabase Auth） |
-| **付費方案管制** | ❌ 不存在 | — | 商業化前必做 |
-| RWD 手機介面 | ⚠️ 有 Tailwind | 電腦優先設計，手機體驗未驗證 | 重新審視主要操作流程的手機 UI |
+### 現有功能清單與實際狀態
+| 功能 | 現狀 | 備註 |
+|------|------|------|
+| 商品分類管理 | ✅ 已完成 | `/categories` |
+| 銷售紀錄 + 列表 | ✅ 已完成 | `/sales`、`/sales/new` |
+| 進貨批次管理 | ✅ 已完成 | `/purchase-batches`，含 CRUD |
+| 庫存追蹤（inventoryRecords） | ✅ 已完成 | `/inventory` |
+| 每週營運成本登記 | ✅ 已完成 | `/weekly-costs` |
+| 真實淨利計算 | ✅ 已完成 | `calculations.ts`：netProfit = 毛利 - weeklyCostsTotal |
+| Dashboard 月度總覽 | ✅ 已完成 | `/dashboard`，4 KPI 卡片 |
+| 財務分析頁面 | ✅ 已完成 | `/dashboard/analysis` |
+| 月度報告 API | ✅ 已完成 | `/api/report/[year]/[month]` |
+| 六個月趨勢圖 | ✅ 已完成 | 顯示淨利（非毛利） |
+| 隱藏成本警示中心 | ✅ 已完成 | `/alerts`，含月比月下滑、廣告費率異常 |
+| 用戶帳號系統 | ✅ 已完成 | NextAuth Credentials + bcrypt，`/login` |
+| 多租戶資料隔離 | ✅ 已完成 | 所有表均有 userId，API 層全部驗證 session |
+| Admin 管理後台 | ✅ 已完成 | `/admin`，用戶列表管理 |
+| 分享連結 | ✅ 已完成 | `/share/[token]` |
+| 批次截圖匯入（OCR） | ⚠️ 存在但降優先 | 品質不穩，v2 再優化 |
+| 手機 RWD 優化 | ⚠️ 基礎 Tailwind | 主要操作流程未針對手機重新設計 |
+| 每週 Email 提醒 | ❌ 未做 | P1，待開發 |
+| 月度 PDF 匯出 | ❌ 未做 | P1，待開發 |
+| 資料庫遷移至雲端 | ❌ 未做 | P2，商業化前必做（Turso） |
+| 付費方案管制 | ❌ 未做 | P2，商業化前必做 |
 
-### 核心診斷結論
-> **現在這個工具算的不是「淨利」，是「不完整的毛利」。**
-> 因為：(1) 成本是手動輸入，沒有從進貨批次自動帶入；(2) 廣告費、運費、包材從來沒有被計入。
-> 在修復這兩個問題之前，圖表上的數字對商業決策沒有意義。
+### 核心診斷結論（更新）
+> **第一階段目標「真實淨利計算」已全部完成。**
+> `netProfit = 月毛利 - weeklyCosts 加總` 的計算邏輯已落地，資料庫 schema 完備，API 層多租戶隔離就緒，帳號登入系統已上線。
+> **目前瓶頸：** 手機 RWD 體驗未優化、缺少推播/Email 提醒讓用戶養成每週記帳習慣、無 PDF 匯出、無付費牆，無法正式商業化。
 
 ---
 
@@ -159,71 +176,69 @@ Step 3：看結果（30 秒）
 
 ## PART 4：資料模型框架
 
-### 現有 Schema vs. 需要的 Schema 對照
+### 實際 Schema（2026-05 已確認狀態）
 
 ```
-【現有 - 保留】categories 表 ✅
-  id, name, description, isActive, createdAt, updatedAt
+【已完成】categories 表 ✅
+  id, userId（多租戶）, name, description, isActive, createdAt, updatedAt
 
-【現有 - 保留】items 表 ✅（微調）
-  id, categoryId, name, typicalCost（參考用，不再是主要成本來源）,
+【已完成】items 表 ✅
+  id, userId, categoryId（FK）, name, typicalCost（參考用）,
   typicalPrice, isActive, createdAt, updatedAt
 
-【需要新增】purchaseBatches 表（真正的進貨批次）────────────
-  id                主鍵
-  itemId            對應 items 表（外鍵）
-  purchaseDate      進貨日期
-  totalQty          進貨總數量
-  remainingQty      目前剩餘庫存（初始 = totalQty，每賣 -1）
-  totalCost         這批進貨的總金額（NT$）
-  unitCost          單件成本（totalCost / totalQty，系統自動計算）
-  notes             備註（可空）
-  createdAt         建立時間
+【已完成】purchaseBatches 表 ✅
+  id, userId, itemId（FK）, purchaseDate, totalQty,
+  remainingQty, totalCost, unitCost（自動計算）, notes, createdAt
 
-【現有 - 修改】sales 表 ⚠️
-  現有欄位保留，新增：
-  purchaseBatchId   外鍵，指向 purchaseBatches（可空，舊資料相容）
-  ※ 當 purchaseBatchId 有值時，cost 自動從 purchaseBatches.unitCost 帶入
-  ※ 確認銷售後，對應 purchaseBatches.remainingQty 自動 -1
+【已完成】inventoryRecords 表 ✅（框架外新增，做更細庫存追蹤）
+  id, userId, itemId（FK）, unitCost, quantity, remainingQty,
+  stockDate, note, isActive, createdAt
 
-【需要新增】weeklyCosts 表（每週營運成本）────────────────
-  id                主鍵
-  weekLabel         年份-週數（e.g. "2026-W15"）
-  adCost            廣告費（Meta / IG / 其他）
-  shippingCost      運費支出（賣家自負部分）
-  packagingCost     包材費用
-  otherCost         其他雜支
-  totalCost         系統自動加總
-  notes             備註（可空）
-  createdAt         建立時間
+【已完成】sales 表 ✅
+  id, userId, itemId（FK）, inventoryRecordId（FK，可空）,
+  purchaseBatchId（FK，可空）, cost, actualPrice, qty,
+  saleDate, source, batchId（FK，OCR 用）, notes, imageUrl, createdAt
 
-【現有 - 降優先級】importBatches / screenshots 表
-  重新命名為 ocrImportBatches 避免與進貨批次混淆
-  功能保留但不再是核心，v2 再優化
+【已完成】weeklyCosts 表 ✅
+  id, userId, weekLabel（YYYY-WNN 或 YYYY-MM）,
+  adCost, shippingCost, packagingCost, otherCost, totalCost, notes, createdAt
 
-【現有 - 保留】shareTokens 表 ✅
+【已完成】用戶帳號相關表 ✅（NextAuth v5）
+  user（id, name, email, password, emailVerified, image）
+  account（OAuth 用，目前只有 Credentials，保留擴充空間）
+  session（JWT session）
+  verificationToken（Email 驗證，備用）
+
+【降優先級】importBatches / screenshots 表
+  功能存在但不是核心，v2 再優化 OCR 準確率
+  ※ 命名誤導問題已知，正式更名留待 v2 migration
+
+【已完成】shareTokens 表 ✅
+  id, userId, token（unique）, label, expiresAt, createdAt
 ```
 
-### 關鍵計算邏輯（修正後）
+### 關鍵計算邏輯（已實作於 `src/lib/calculations.ts`）
 
 ```
-每筆銷售毛利 = actualPrice - purchaseBatch.unitCost
-（不再是手動輸入 cost，而是自動從進貨批次帶入）
+每筆銷售毛利 = actualPrice * qty - cost * qty
+（cost 欄位：有 purchaseBatchId 時由進貨批次 unitCost 帶入，否則手動輸入）
 
-月毛利總和 = 當月所有 sales.grossProfit 加總
+月毛利總和 = 當月所有 sales 加總
 
-月總營運成本 = 當月所有 weeklyCosts.totalCost 加總
+月總營運成本 = 當月 weeklyCosts 加總
+  ※ 支援兩種格式：YYYY-WNN（週）和 YYYY-MM（月）
+  ※ ISO 週四歸屬法：以週四落點判斷該週歸哪個月
 
-月淨利 = 月毛利總和 - 月總營運成本   ← 這才是真實淨利
-
+月淨利 = 月毛利 - 月總營運成本   ← 已落地
 淨利率 = 月淨利 / 月營收
+
+此邏輯已整合進 Dashboard、財務分析、月度報告 API
 ```
 
-### 遷移策略（不破壞現有資料）
-- 舊的 `sales.cost` 欄位保留，歷史資料繼續有效
-- 新資料透過 `purchaseBatchId` 自動帶入成本
-- 系統判斷邏輯：`purchaseBatchId != null` 用批次成本；否則用手動 `cost`
-- 這樣舊資料不需要重新輸入，新資料自動更準確
+### 相容性策略（已實作）
+- `sales.cost` 欄位保留，舊資料繼續有效
+- `purchaseBatchId` 可空，相容歷史資料
+- `inventoryRecordId` 可空，相容無庫存追蹤的資料
 
 ---
 
@@ -235,90 +250,121 @@ Step 3：看結果（30 秒）
 - **P2**：商業化必要但不影響核心價值
 - **P3**：未來功能，現在不做
 
-### 功能清單（含現有狀態）
+### 功能清單（2026-05 實際狀態）
 
-| 功能 | 優先級 | 現有狀態 | 需要做的事 |
-|------|--------|----------|-----------|
-| 進貨批次管理（purchaseBatches） | **P0** | ❌ 不存在 | 新增資料表 + CRUD 頁面 |
-| 銷售成本自動從批次帶入 | **P0** | ❌ 現為手動輸入 | 修改 sales 表 + 輸入流程 |
-| 庫存自動扣減 | **P0** | ❌ 不存在 | 銷售確認時觸發扣減邏輯 |
-| 每週成本登記（weeklyCosts） | **P0** | ❌ 不存在 | 新增資料表 + 每週輸入頁面 |
-| 真實淨利計算與首頁總覽 | **P0** | ❌ 現在是不完整毛利 | 計算邏輯修正 + 首頁 KPI 卡片 |
-| 商品分類管理 | P1 | ✅ 已做 | 維持 |
-| 銷售紀錄列表 | P1 | ✅ 已做 | 補充顯示批次成本來源 |
-| 六個月淨利趨勢圖 | P1 | ⚠️ 已做但顯示毛利 | 改為顯示真實淨利 |
-| 隱藏成本警示 | P1 | ❌ 不存在 | 警示邏輯 + 警示頁面 |
-| 每週提醒（Email 通知） | P1 | ❌ 不存在 | v1 先做 Email，v2 做推播 |
-| 月度報告 PDF 匯出 | P1 | ❌ 不存在 | 商業化前必做 |
-| 手機 RWD 優化 | P1 | ⚠️ 電腦優先 | 主要操作流程重新審視手機體驗 |
-| 用戶帳號與登入系統 | P2 | ❌ 不存在 | 商業化前必做（Supabase Auth） |
-| 資料庫遷移至雲端 | P2 | ⚠️ 本地 SQLite | 商業化前遷移至 Turso 或 Supabase |
-| 付費方案管制 | P2 | ❌ 不存在 | 商業化前必做 |
-| 圖片/截圖匯入（OCR） | P3 | ✅ 已做 | 降優先級，v2 再優化準確率 |
-| Meta 廣告 API 串接 | P3 | ❌ 不存在 | v2 再談 |
-| 銀行帳單 CSV 自動對帳 | P3 | ❌ 不存在 | v2 再談 |
+| 功能 | 優先級 | 實際狀態 | 備註 |
+|------|--------|----------|------|
+| 進貨批次管理（purchaseBatches） | **P0** | ✅ 已完成 | `/purchase-batches` CRUD |
+| 銷售成本自動從批次帶入 | **P0** | ✅ 已完成 | purchaseBatchId FK，cost 自動帶入 |
+| 庫存追蹤（inventoryRecords） | **P0** | ✅ 已完成 | `/inventory`，remainingQty 追蹤 |
+| 每週成本登記（weeklyCosts） | **P0** | ✅ 已完成 | `/weekly-costs` |
+| 真實淨利計算與首頁總覽 | **P0** | ✅ 已完成 | netProfit = 毛利 - weeklyCosts |
+| 商品分類管理 | P1 | ✅ 已完成 | `/categories` |
+| 銷售紀錄列表 | P1 | ✅ 已完成 | `/sales` |
+| 財務分析頁面 | P1 | ✅ 已完成 | `/dashboard/analysis` |
+| 六個月淨利趨勢圖 | P1 | ✅ 已完成 | 已顯示真實淨利（非毛利） |
+| 隱藏成本警示中心 | P1 | ✅ 已完成 | `/alerts`，月比月、廣告費率警示 |
+| 月度報告 API | P1 | ✅ 已完成 | `/api/report/[year]/[month]` |
+| 用戶帳號與登入系統 | P1→已完成 | ✅ 已完成 | NextAuth Credentials + bcrypt（原 P2 提前完成） |
+| 多租戶資料隔離 | P1→已完成 | ✅ 已完成 | 所有 API 均驗證 session.user.id（原 P2 提前完成） |
+| Admin 管理後台 | P1→已完成 | ✅ 已完成 | `/admin`，用戶列表管理 |
+| 手機 RWD 優化 | P1 | ⚠️ 未完成 | 主要操作流程需重新審視 |
+| 每週 Email 提醒 | P1 | ❌ 未做 | 待開發，讓用戶養成每週記帳習慣 |
+| 月度 PDF 匯出 | P1 | ❌ 未做 | 商業化前必做 |
+| 資料庫遷移至 Turso 雲端 | P2 | ❌ 未做 | 商業化前必做 |
+| 付費方案管制（30 筆限制） | P2 | ❌ 未做 | 商業化前必做 |
+| 付費整合（綠界） | P2 | ❌ 未做 | 商業化前必做 |
+| 圖片/截圖匯入（OCR） | P3 | ⚠️ 存在 | 降優先級，v2 再優化準確率 |
+| Meta 廣告 API 串接 | P3 | ❌ 不存在 | v2 |
+| 銀行帳單 CSV 自動對帳 | P3 | ❌ 不存在 | v2 |
 | 多用戶/員工協作 | P3 | ❌ 不存在 | 不在第一目標用戶需求內 |
 
 ---
 
 ## PART 6：介面架構框架
 
-### 四個核心頁面（不能更多）
+### 實際已存在的頁面（2026-05）
+
+```
+已上線側欄導航（sidebar-nav.tsx）：
+  📊 儀表板         /dashboard
+  🗂️ 商品分類       /categories
+  📦 進貨 / 庫存    /inventory
+  🧾 銷售紀錄       /sales
+  💰 每月成本       /weekly-costs
+  🚨 警示中心       /alerts
+  🔗 分享           /share
+  👤 使用者管理     /admin（ADMIN_EMAIL 限定）
+
+額外頁面（不在側欄）：
+  /dashboard/analysis?month=YYYY-MM  ← 財務分析（從圖表點擊進入）
+  /sales/new                         ← 新增銷售
+  /purchase-batches                  ← 進貨批次管理
+  /login                             ← 登入頁
+  /share/[token]                     ← 公開分享頁
+```
+
+### 各頁面功能現況
 
 ```
 ┌─────────────────────────────────────────┐
-│  頁面 1：首頁（本月體檢）               │
+│  /dashboard（儀表板）✅ 已完成          │
 │  ─────────────────────────────────────  │
-│  本月淨利：NT$ XXXXX  ↑12% vs 上月      │
-│  ─────────────────────────────────────  │
-│  營收 / 毛利 / 總成本 / 淨利率（4 卡片）│
-│  ─────────────────────────────────────  │
-│  六個月淨利趨勢折線圖                   │
-│  ─────────────────────────────────────  │
-│  ⚠️ 警示清單（有才顯示）               │
-│  ─────────────────────────────────────  │
-│  📋 待處理：本週有 X 筆訂單未確認       │
+│  KPI 卡片：營收/毛利/營運成本/淨利      │
+│  近 6 個月趨勢圖（含淨利紫色 bar）      │
+│  點擊月份 → 進入財務分析頁              │
+│  分類排行（最高/最低毛利率）            │
+│  進貨備貨建議（Guidance）               │
 └─────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────┐
-│  頁面 2：本週記帳（主操作頁）           │
-│  ─────────────────────────────────────  │
-│  [+ 新增訂單] → 快速輸入表單            │
-│    選商品（下拉）/ 售價 / 收款狀態      │
-│  ─────────────────────────────────────  │
-│  本週訂單列表（可編輯）                 │
-│  ─────────────────────────────────────  │
-│  本週成本區塊（廣告/運費/包材/其他）    │
-│  ─────────────────────────────────────  │
-│  本週小計：毛利 XXX / 淨利 XXX          │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│  頁面 3：進貨管理                       │
-│  ─────────────────────────────────────  │
-│  庫存清單：品項 / 剩餘數量 / 單件成本   │
-│  ─────────────────────────────────────  │
-│  [+ 新增進貨批次]                       │
-│    品項名 / 數量 / 總金額               │
-│    → 自動計算單件成本                   │
-│  ─────────────────────────────────────  │
-│  ⚠️ 低庫存提醒（< 3 件）               │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│  頁面 4：月度報告                       │
+│  /dashboard/analysis ✅ 已完成          │
 │  ─────────────────────────────────────  │
 │  月份選擇器                             │
 │  完整損益表（月營收/成本結構/淨利）     │
-│  成本圓餅圖                             │
+│  成本明細（廣告/運費/包材/其他）        │
 │  與上月比較                             │
-│  [匯出 PDF]                             │
+│  AI 財務洞察（financial-insights.ts）   │
+│  ⚠️ 無 PDF 匯出按鈕（API 存在但未串 UI）│
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  /sales + /sales/new ✅ 已完成          │
+│  ─────────────────────────────────────  │
+│  銷售列表，可按月份/分類篩選            │
+│  新增銷售：選商品、填售價、選進貨批次   │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  /inventory + /purchase-batches ✅ 已完成│
+│  ─────────────────────────────────────  │
+│  庫存總覽（inventoryRecords）           │
+│  進貨批次 CRUD（purchaseBatches）       │
+│  單件成本自動計算                       │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  /weekly-costs ✅ 已完成                │
+│  ─────────────────────────────────────  │
+│  按週（YYYY-WNN）登記廣告/運費/包材     │
+│  ⚠️ 導航標籤寫「每月成本」但實為週次輸入│
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  /alerts ✅ 已完成                      │
+│  ─────────────────────────────────────  │
+│  廣告費異常（> 30% 營收）               │
+│  低庫存警示（remainingQty ≤ 3）         │
+│  本月成本未登記                         │
+│  超過 7 天無銷售                        │
+│  月比月營收下滑 > 15%                   │
 └─────────────────────────────────────────┘
 ```
 
-### 導航設計
-- 底部 Tab Bar（手機）：首頁 / 記帳 / 進貨 / 報告
-- 桌面側欄同樣四個入口
+### 待補完的 UI（功能存在但未串入介面）
+- **月度 PDF 下載按鈕**：API `/api/report/[year]/[month]` 已產生 PDF，但分析頁沒有下載按鈕
+- **手機 RWD**：桌面優先設計，手機體驗未審視
+- **導航標籤修正**：「每月成本」實際是週次輸入，標籤應更新
 
 ---
 
@@ -409,54 +455,46 @@ Step 3：看結果（30 秒）
 
 ---
 
-## PART 10：開發執行順序（框架確認後的具體任務）
+## PART 10：開發執行順序（2026-05 更新）
 
 > 原則：先把「真實淨利計算」這條主線打通，再做體驗優化，最後做商業化基礎設施。
 
-### 第一階段：打通真實淨利計算（估計 3-4 週）
+### 第一階段：打通真實淨利計算 ✅ 已全部完成
 
 ```
-Week 1：資料模型升級
-  □ 新增 purchaseBatches 資料表（Drizzle schema migration）
-  □ 新增 weeklyCosts 資料表
-  □ sales 表新增 purchaseBatchId 欄位
-  □ 舊資料相容性測試
-
-Week 2：進貨批次管理頁面
-  □ 進貨批次 CRUD（新增/編輯/刪除）
-  □ 庫存剩餘數量自動計算與顯示
-  □ 低庫存提醒邏輯（< 3 件）
-
-Week 3：銷售流程重構
-  □ 銷售輸入時改為「選進貨批次」而非手動輸入成本
-  □ 確認銷售後自動扣減庫存
-  □ 每筆毛利自動計算
-
-Week 4：每週成本登記 + 淨利計算修正
-  □ 每週成本輸入頁面（廣告/運費/包材/其他）
-  □ 首頁 KPI 修正：月淨利 = 月毛利 - 月營運成本
-  □ 六個月圖表改為顯示淨利（非毛利）
+✅ purchaseBatches 資料表 + CRUD 頁面
+✅ weeklyCosts 資料表 + 每週成本輸入頁面
+✅ sales.purchaseBatchId 外鍵（自動帶入成本）
+✅ inventoryRecords 庫存追蹤（額外完成）
+✅ 淨利計算邏輯（calculations.ts）
+✅ 首頁 KPI：月淨利 = 月毛利 - 月營運成本
+✅ 六個月趨勢圖顯示淨利（紫色 bar）
+✅ 用戶帳號系統（NextAuth Credentials + bcrypt）← 原 P2，提前完成
+✅ 多租戶資料隔離（userId + session 驗證）← 原 P2，提前完成
+✅ Admin 管理後台（ADMIN_EMAIL 保護）
 ```
 
-### 第二階段：體驗提升（估計 3-4 週）
+### 第二階段：體驗收尾（目前進行中）
 
 ```
-  □ 隱藏成本警示頁面
-  □ 手機 RWD 重新審視主要操作流程
-  □ 月度報告 PDF 匯出
-  □ 每週 Email 提醒（「本週有 N 筆待確認」）
-  □ 修正：importBatches 更名為 ocrImportBatches
+✅ 隱藏成本警示中心（/alerts，5 種警示）
+✅ 財務分析頁面（/dashboard/analysis）
+✅ 月度報告 PDF API（/api/report/[year]/[month]，@react-pdf/renderer）
+
+⬜ 分析頁加入「下載 PDF」按鈕（API 已有，UI 未串）
+⬜ 手機 RWD 重新審視主要操作流程
+⬜ 每週 Email 提醒（「本週有 N 筆待確認」）
+⬜ 導航標籤修正（「每月成本」→「每週成本」）
 ```
 
-### 第三階段：商業化基礎設施（估計 4-6 週）
+### 第三階段：商業化基礎設施（待開始）
 
 ```
-  □ 資料庫遷移：SQLite → Turso（雲端 LibSQL，相容現有 Drizzle 設定）
-  □ 用戶帳號系統（NextAuth.js + Email 登入，最簡方案）
-  □ 多租戶資料隔離（每個用戶只看自己的資料）
-  □ 付費方案管制（免費 30 筆訂單/月限制）
-  □ 付費整合（綠界科技，台灣最適合）
-  □ 上線 Vercel + 自訂網域
+⬜ 資料庫遷移：SQLite → Turso（雲端 LibSQL，相容現有 Drizzle 設定）
+⬜ 付費方案管制（免費 30 筆訂單/月限制）
+⬜ 付費整合（綠界科技，台灣最適合）
+⬜ 上線 Vercel + 自訂網域
+⬜ importBatches 更名為 ocrImportBatches（減少混淆）
 ```
 
 ### 不在任何階段的事（現在不碰）
