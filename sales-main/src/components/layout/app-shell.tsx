@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "./bottom-nav";
+import { PlusSheet } from "./plus-sheet";
 
 export function AppShell({
   children,
@@ -16,10 +17,11 @@ export function AppShell({
   const pathname = usePathname();
   const isPublicShare = pathname?.startsWith("/share/") && pathname.split("/").length >= 3;
   const isLogin = pathname === "/login";
+  const [plusOpen, setPlusOpen] = useState(false);
 
   useEffect(() => {
-    // 路由切換時捲回頂部（手機體驗）
     window.scrollTo(0, 0);
+    setPlusOpen(false);
   }, [pathname]);
 
   if (isPublicShare || isLogin) {
@@ -38,13 +40,15 @@ export function AppShell({
         </header>
 
         <main className="flex-1 overflow-auto">
-          {/* 手機底部加 padding，避免內容被 BottomNav 蓋住 */}
           <div className="p-4 md:p-6 pb-24 md:pb-6">{children}</div>
         </main>
       </div>
 
       {/* 手機底部導覽列 */}
-      <BottomNav isAdmin={isAdmin} />
+      <BottomNav isAdmin={isAdmin} onPlusPress={() => setPlusOpen(true)} />
+
+      {/* + 選單（手機專用） */}
+      {plusOpen && <PlusSheet onClose={() => setPlusOpen(false)} />}
     </>
   );
 }

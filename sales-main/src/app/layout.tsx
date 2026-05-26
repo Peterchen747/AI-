@@ -54,7 +54,10 @@ export default async function RootLayout({
         {session?.user ? (
           <>
             <AppShell sidebar={<Sidebar isAdmin={isAdmin} />} isAdmin={isAdmin}>{children}</AppShell>
-            <ChatWidget />
+            {/* 桌機版才顯示浮動 AI 按鈕；手機版改從 + 選單進入 /ai */}
+            <div className="hidden md:block">
+              <ChatWidget />
+            </div>
           </>
         ) : (
           <main className="flex-1">{children}</main>

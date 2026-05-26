@@ -14,7 +14,7 @@ const moreItems = [
   { href: "/share", label: "分享頁面", icon: "🔗" },
 ];
 
-export function BottomNav({ isAdmin }: { isAdmin?: boolean }) {
+export function BottomNav({ isAdmin, onPlusPress }: { isAdmin?: boolean; onPlusPress?: () => void }) {
   const pathname = usePathname();
   const [alertCount, setAlertCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -57,16 +57,17 @@ export function BottomNav({ isAdmin }: { isAdmin?: boolean }) {
             <span className="text-[10px]">庫存</span>
           </Link>
 
-          {/* ＋ 新增銷售（中央大按鈕） */}
-          <Link
-            href="/sales/new"
+          {/* ＋ 新增（中央大按鈕）— 開啟 PlusSheet */}
+          <button
+            type="button"
+            onClick={onPlusPress}
             className="flex-1 flex flex-col items-center justify-center h-full"
-            aria-label="新增銷售"
+            aria-label="新增"
           >
             <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg -mt-5 border-4 border-card">
               <span className="text-3xl text-primary-foreground font-light leading-none select-none">＋</span>
             </div>
-          </Link>
+          </button>
 
           {/* 警示 */}
           <Link

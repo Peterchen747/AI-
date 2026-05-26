@@ -14,6 +14,7 @@ import { TopCategoriesChart } from "@/components/dashboard/top-categories";
 import { WorstCategories } from "@/components/dashboard/worst-categories";
 import { GuidanceTable } from "@/components/dashboard/guidance";
 import { DashboardMonthPicker } from "@/components/dashboard/month-picker";
+import { MobileDashboardHero } from "@/components/dashboard/mobile-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,9 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
+      {/* 手機版：Hero 淨利卡 + 快速動作列（桌機隱藏） */}
+      <MobileDashboardHero current={current} previous={previous} />
+
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">儀表板</h1>

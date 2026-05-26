@@ -17,3 +17,15 @@ sales-main/.env.local
 Thumbs.db
 
 .vercel
+
+# Claude / AI 工具設定（不入版控）
+sales-main/.claude/
+sales-main/.claude-flow/
+sales-main/.mcp.json
+sales-main/,
+sales-main/`
+
+# 設計稿與 onboarding 資料（不入版控）
+design_handoff_erp_mobile/
+onboarding_extracted/
+*.zip
