@@ -53,7 +53,7 @@ export default async function RootLayout({
       <body className="h-full flex">
         {session?.user ? (
           <>
-            <AppShell sidebar={<Sidebar isAdmin={isAdmin} />}>{children}</AppShell>
+            <AppShell sidebar={<Sidebar isAdmin={isAdmin} />} isAdmin={isAdmin}>{children}</AppShell>
             <ChatWidget />
           </>
         ) : (
