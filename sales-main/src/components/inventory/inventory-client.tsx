@@ -263,8 +263,79 @@ export function InventoryClient({
             總入庫成本：{formatNTD(totalInventoryCost)}
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[860px]">
+
+        {records.length === 0 && (
+          <div className="py-6 text-center text-muted-foreground">目前沒有入庫紀錄</div>
+        )}
+
+        {/* 手機卡片 */}
+        <div className="md:hidden space-y-3">
+          {records.map((record) => (
+            <div key={record.id} className="rounded-xl border p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">{record.itemName}</p>
+                  <p className="text-xs text-muted-foreground">{record.categoryName ?? "-"}</p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{record.stockDate}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">單位成本</p>
+                  <p>{formatNTD(record.unitCost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">數量 / 剩餘</p>
+                  <p>
+                    {record.quantity} /{" "}
+                    <span className={record.remainingQty === 0 ? "text-red-600" : ""}>
+                      {record.remainingQty}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              {editingId === record.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editNote}
+                    onChange={(e) => setEditNote(e.target.value)}
+                    className="min-h-16"
+                    placeholder="備註"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 h-10" onClick={() => saveNote(record.id)}>
+                      儲存
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-10"
+                      onClick={() => { setEditingId(null); setEditNote(""); }}>
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {record.note && (
+                    <p className="text-xs text-muted-foreground">{record.note}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-10"
+                      onClick={() => { setEditingId(record.id); setEditNote(record.note ?? ""); }}>
+                      編修備註
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-10"
+                      onClick={() => removeRecord(record)}>
+                      刪除
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 桌機表格 */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm min-w-215">
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left py-2">ID</th>
@@ -279,13 +350,6 @@ export function InventoryClient({
               </tr>
             </thead>
             <tbody>
-              {records.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
-                    目前沒有入庫紀錄
-                  </td>
-                </tr>
-              )}
               {records.map((record) => (
                 <tr key={record.id} className="border-b align-top">
                   <td className="py-2 pr-2">#{record.id}</td>
@@ -302,23 +366,11 @@ export function InventoryClient({
                   <td className="py-2 pr-2 max-w-xs">
                     {editingId === record.id ? (
                       <div className="space-y-2">
-                        <Textarea
-                          value={editNote}
-                          onChange={(e) => setEditNote(e.target.value)}
-                          className="min-h-16"
-                        />
+                        <Textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} className="min-h-16" />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => saveNote(record.id)}>
-                            儲存
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingId(null);
-                              setEditNote("");
-                            }}
-                          >
+                          <Button size="sm" onClick={() => saveNote(record.id)}>儲存</Button>
+                          <Button size="sm" variant="outline"
+                            onClick={() => { setEditingId(null); setEditNote(""); }}>
                             取消
                           </Button>
                         </div>
@@ -330,14 +382,8 @@ export function InventoryClient({
                   <td className="py-2 text-right">
                     <div className="flex justify-end gap-2">
                       {editingId !== record.id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingId(record.id);
-                            setEditNote(record.note ?? "");
-                          }}
-                        >
+                        <Button size="sm" variant="outline"
+                          onClick={() => { setEditingId(record.id); setEditNote(record.note ?? ""); }}>
                           編修備註
                         </Button>
                       )}

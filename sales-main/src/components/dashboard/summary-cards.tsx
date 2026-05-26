@@ -50,62 +50,9 @@ export function SummaryCards({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-normal">
-              本月營收
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNTD(current.revenue)}</div>
-            {deltaBadge(current.revenue, previous.revenue)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-normal">
-              本月成本
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNTD(current.cost)}</div>
-            {deltaBadge(current.cost, previous.cost)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-normal">
-              本月毛利
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                current.profit >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {formatNTD(current.profit)}
-            </div>
-            {deltaBadge(current.profit, previous.profit)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-normal">
-              毛利率
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {current.margin.toFixed(1)}%
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              共 {current.count} 筆交易
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-4">
+        {/* 本月淨利：手機優先顯示（order-first），桌機維持第5位 */}
+        <Card className="order-first md:order-0 col-span-2 md:col-span-1 border-primary/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground font-normal">
               本月淨利
@@ -122,7 +69,61 @@ export function SummaryCards({
             {deltaBadge(current.netProfit, previous.netProfit)}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="order-2 md:order-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月營收
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNTD(current.revenue)}</div>
+            {deltaBadge(current.revenue, previous.revenue)}
+          </CardContent>
+        </Card>
+        <Card className="order-3 md:order-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月成本
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNTD(current.cost)}</div>
+            {deltaBadge(current.cost, previous.cost)}
+          </CardContent>
+        </Card>
+        <Card className="order-4 md:order-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              本月毛利
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                current.profit >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {formatNTD(current.profit)}
+            </div>
+            {deltaBadge(current.profit, previous.profit)}
+          </CardContent>
+        </Card>
+        <Card className="order-5 md:order-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground font-normal">
+              毛利率
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {current.margin.toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              共 {current.count} 筆交易
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="order-6 md:order-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground font-normal">
               淨利率

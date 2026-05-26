@@ -131,7 +131,74 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
 
   return (
     <>
-      <div className="rounded-md border bg-card overflow-x-auto">
+      {/* 手機卡片列表 */}
+      <div className="md:hidden space-y-3">
+        {sales.length === 0 && (
+          <div className="text-center text-muted-foreground py-12">沒有符合條件的銷售紀錄</div>
+        )}
+        {sales.map((s) => {
+          const qty = s.qty ?? 1;
+          const profit = (s.actualPrice - s.cost) * qty;
+          const margin = s.actualPrice > 0
+            ? ((s.actualPrice - s.cost) / s.actualPrice) * 100
+            : 0;
+          return (
+            <div key={s.id} className="rounded-xl border bg-card p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                {s.imageUrl ? (
+                  <a href={s.imageUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={s.imageUrl} alt="" className="h-12 w-12 object-cover rounded-lg border" />
+                  </a>
+                ) : null}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {s.itemDisplayName || "—"}
+                    {s.itemActive === 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">(已封存)</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{s.categoryName || "—"}</p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{s.saleDate}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">售價</p>
+                  <p className="font-semibold">{formatNTD(s.actualPrice)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">總毛利</p>
+                  <p className={`font-semibold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {profit >= 0 ? "+" : ""}{formatNTD(profit)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">毛利率</p>
+                  <p>{margin.toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">數量</p>
+                  <p>×{qty}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => openEdit(s)}>
+                  編輯
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => remove(s.id)}>
+                  刪除
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 桌機表格 */}
+      <div className="hidden md:block rounded-md border bg-card overflow-x-auto">
         <Table className="min-w-[720px]">
           <TableHeader>
             <TableRow>

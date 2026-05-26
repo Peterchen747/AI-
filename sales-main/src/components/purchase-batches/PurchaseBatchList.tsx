@@ -54,37 +54,72 @@ export function PurchaseBatchList() {
     }
   }
 
+  if (loading) {
+    return <div className="text-center text-muted-foreground py-8">載入中...</div>;
+  }
+
+  if (batches.length === 0) {
+    return <div className="text-center text-muted-foreground py-8">尚無進貨紀錄</div>;
+  }
+
   return (
-    <div className="rounded-md border bg-card overflow-x-auto">
-      <Table className="min-w-200">
-        <TableHeader>
-          <TableRow>
-            <TableHead>品項名稱</TableHead>
-            <TableHead>進貨日期</TableHead>
-            <TableHead className="text-right">進貨數量</TableHead>
-            <TableHead className="text-right">剩餘庫存</TableHead>
-            <TableHead className="text-right">單件成本</TableHead>
-            <TableHead className="text-right">進貨總額</TableHead>
-            <TableHead className="text-right">操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && (
+    <>
+      {/* 手機卡片列表 */}
+      <div className="md:hidden space-y-3">
+        {batches.map((b) => (
+          <div key={b.id} className="rounded-xl border bg-card p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium">{b.itemName}</p>
+              <span className="text-xs text-muted-foreground shrink-0">{b.purchaseDate}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">進貨數量</p>
+                <p>{b.totalQty}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">剩餘庫存</p>
+                <p className={b.remainingQty <= 3 ? "text-orange-500 font-medium" : ""}>
+                  {b.remainingQty <= 3 ? `⚠️ ${b.remainingQty}` : b.remainingQty}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">單件成本</p>
+                <p>NT$ {b.unitCost.toLocaleString("zh-TW")}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">進貨總額</p>
+                <p>NT$ {b.totalCost.toLocaleString("zh-TW")}</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => handleDelete(b.id)}
+            >
+              刪除
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {/* 桌機表格 */}
+      <div className="hidden md:block rounded-md border bg-card overflow-x-auto">
+        <Table className="min-w-200">
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                載入中...
-              </TableCell>
+              <TableHead>品項名稱</TableHead>
+              <TableHead>進貨日期</TableHead>
+              <TableHead className="text-right">進貨數量</TableHead>
+              <TableHead className="text-right">剩餘庫存</TableHead>
+              <TableHead className="text-right">單件成本</TableHead>
+              <TableHead className="text-right">進貨總額</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
-          )}
-          {!loading && batches.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                尚無進貨紀錄
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading &&
-            batches.map((b) => (
+          </TableHeader>
+          <TableBody>
+            {batches.map((b) => (
               <TableRow key={b.id}>
                 <TableCell>{b.itemName}</TableCell>
                 <TableCell>{b.purchaseDate}</TableCell>
@@ -113,8 +148,9 @@ export function PurchaseBatchList() {
                 </TableCell>
               </TableRow>
             ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
