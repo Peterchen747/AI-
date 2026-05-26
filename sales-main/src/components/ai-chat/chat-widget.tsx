@@ -8,18 +8,61 @@ type Message = {
   content: string;
 };
 
+const STORAGE_KEY = "ai-chat-widget-pos";
+const BUTTON_SIZE = 56; // h-14 w-14
+const MARGIN = 16;
+
+function clamp(val: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, val));
+}
+
+function loadPos(): { x: number; y: number } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (typeof p.x === "number" && typeof p.y === "number") return p;
+  } catch {}
+  return null;
+}
+
+function defaultPos() {
+  return {
+    x: window.innerWidth - BUTTON_SIZE - MARGIN,
+    y: window.innerHeight - BUTTON_SIZE - MARGIN - 64, // above bottom-nav
+  };
+}
+
 function ChatWidgetInner() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const dragState = useRef<{
+    startPointerX: number;
+    startPointerY: number;
+    startPosX: number;
+    startPosY: number;
+    moved: boolean;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  // URL param 觸發預填問題（由警示頁「詢問 AI」按鈕帶入）
+  // 初始化位置
+  useEffect(() => {
+    const saved = loadPos();
+    setPos(saved ?? defaultPos());
+  }, []);
+
+  // URL param 觸發預填問題
   useEffect(() => {
     const question = searchParams.get("ai-question");
     if (question) {
@@ -34,11 +77,79 @@ function ChatWidgetInner() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 關閉時取消進行中的串流
+  // 視窗大小改變時把按鈕夾回範圍內
+  useEffect(() => {
+    function onResize() {
+      setPos((p) => {
+        if (!p) return p;
+        const maxX = window.innerWidth - BUTTON_SIZE - MARGIN;
+        const maxY = window.innerHeight - BUTTON_SIZE - MARGIN;
+        return { x: clamp(p.x, MARGIN, maxX), y: clamp(p.y, MARGIN, maxY) };
+      });
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const handleClose = useCallback(() => {
     readerRef.current?.cancel();
     setIsStreaming(false);
     setIsOpen(false);
+  }, []);
+
+  // 拖移開始
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (!pos) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragState.current = {
+        startPointerX: e.clientX,
+        startPointerY: e.clientY,
+        startPosX: pos.x,
+        startPosY: pos.y,
+        moved: false,
+      };
+      setIsDragging(false);
+    },
+    [pos]
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const ds = dragState.current;
+    if (!ds) return;
+
+    const dx = e.clientX - ds.startPointerX;
+    const dy = e.clientY - ds.startPointerY;
+
+    if (!ds.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    ds.moved = true;
+    setIsDragging(true);
+
+    const maxX = window.innerWidth - BUTTON_SIZE - MARGIN;
+    const maxY = window.innerHeight - BUTTON_SIZE - MARGIN;
+    setPos({
+      x: clamp(ds.startPosX + dx, MARGIN, maxX),
+      y: clamp(ds.startPosY + dy, MARGIN, maxY),
+    });
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    const ds = dragState.current;
+    dragState.current = null;
+
+    if (!ds) return;
+
+    if (!ds.moved) {
+      // 當作一般點擊
+      setIsOpen((v) => !v);
+    } else {
+      // 拖移結束：存位置
+      setPos((p) => {
+        if (p) localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+        return p;
+      });
+    }
+    setIsDragging(false);
   }, []);
 
   const sendMessage = useCallback(async () => {
@@ -125,10 +236,30 @@ function ChatWidgetInner() {
     }
   };
 
+  if (!pos) return null;
+
+  // 計算對話框位置：優先在按鈕上方，若空間不足就在下方
+  const panelWidth = 320;
+  const panelHeight = 520;
+  const spaceAbove = pos.y;
+  const panelTop = spaceAbove >= panelHeight + 8
+    ? pos.y - panelHeight - 8
+    : pos.y + BUTTON_SIZE + 8;
+  const panelLeft = clamp(pos.x - panelWidth + BUTTON_SIZE, MARGIN, window.innerWidth - panelWidth - MARGIN);
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+    <>
+      {/* 對話框 */}
       {isOpen && (
-        <div className="flex flex-col w-80 h-[520px] rounded-2xl border bg-background shadow-2xl overflow-hidden">
+        <div
+          className="fixed z-50 flex flex-col rounded-2xl border bg-background shadow-2xl overflow-hidden"
+          style={{
+            width: panelWidth,
+            height: panelHeight,
+            left: panelLeft,
+            top: panelTop,
+          }}
+        >
           {/* 標頭 */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground shrink-0">
             <div>
@@ -205,15 +336,24 @@ function ChatWidgetInner() {
         </div>
       )}
 
-      {/* 浮動按鈕 */}
+      {/* 可拖移浮動按鈕 */}
       <button
-        onClick={() => setIsOpen((v) => !v)}
+        ref={buttonRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         aria-label={isOpen ? "收合 AI 財務顧問" : "開啟 AI 財務顧問"}
-        className="h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center text-2xl hover:bg-primary/90 transition-colors"
+        className="fixed z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center text-2xl hover:bg-primary/90 active:scale-95 transition-transform select-none"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          cursor: isDragging ? "grabbing" : "grab",
+          userSelect: "none",
+        }}
       >
         {isOpen ? "✕" : "🤖"}
       </button>
-    </div>
+    </>
   );
 }
 
