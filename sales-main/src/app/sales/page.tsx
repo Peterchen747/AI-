@@ -62,6 +62,7 @@ export default async function SalesPage({
       source: schema.sales.source,
       notes: schema.sales.notes,
       imageUrl: schema.sales.imageUrl,
+      orderNo: schema.sales.orderNo,
       categoryName: schema.categories.name,
       itemDisplayName: schema.items.name,
       itemActive: schema.items.isActive,
@@ -82,6 +83,9 @@ export default async function SalesPage({
     .from(schema.categories)
     .orderBy(asc(schema.categories.name));
 
+  const orderCount = new Set(
+    sales.map((s) => (s.orderNo ? `order-${s.orderNo}` : `solo-${s.id}`))
+  ).size;
   const totalQty = sales.reduce((s, r) => s + (r.qty ?? 1), 0);
   const totalRevenue = sales.reduce((s, r) => s + r.actualPrice * (r.qty ?? 1), 0);
   const totalCost = sales.reduce((s, r) => s + r.cost * (r.qty ?? 1), 0);
@@ -104,8 +108,8 @@ export default async function SalesPage({
         {month && <MonthFilter current={month} />}
         <div className="flex-1 grid grid-cols-2 md:flex gap-2 md:gap-4 md:justify-end text-sm">
           <div className="px-3 py-2 rounded-md border bg-card">
-            <div className="text-muted-foreground text-xs">筆數 / 件數</div>
-            <div className="font-bold">{sales.length} / {totalQty}</div>
+            <div className="text-muted-foreground text-xs">訂單 / 件數</div>
+            <div className="font-bold">{orderCount} / {totalQty}</div>
           </div>
           <div className="px-3 py-2 rounded-md border bg-card">
             <div className="text-muted-foreground text-xs">營收</div>
@@ -124,7 +128,10 @@ export default async function SalesPage({
         </div>
       </div>
 
-      <SalesTable sales={sales} />
+      <SalesTable
+        sales={sales}
+        categoryFiltered={Boolean(categoryId && !isNaN(categoryId) && categoryId > 0)}
+      />
     </div>
   );
 }

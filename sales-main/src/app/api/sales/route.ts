@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { and, desc, eq, gte, like, lte, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ensureSchema } from "@/db/ensure-schema";
@@ -15,6 +16,7 @@ type SalePayload = {
   imageUrl: string | null;
   inventoryRecordId: number | null;
   purchaseBatchId: number | null;
+  orderNo: string | null;
 };
 
 function isValidDateString(value: string) {
@@ -26,6 +28,34 @@ function isValidDateString(value: string) {
     dt.getUTCMonth() === m - 1 &&
     dt.getUTCDate() === d
   );
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** 刪除銷售紀錄後，把庫存 / 進貨批次的剩餘數量加回去 */
+async function restoreStock(
+  tx: Tx,
+  row: {
+    inventoryRecordId: number | null;
+    purchaseBatchId: number | null;
+    qty: number | null;
+  }
+) {
+  if (row.inventoryRecordId != null) {
+    await tx
+      .update(schema.inventoryRecords)
+      .set({ remainingQty: sql`${schema.inventoryRecords.remainingQty} + 1` })
+      .where(eq(schema.inventoryRecords.id, row.inventoryRecordId));
+  }
+
+  if (row.purchaseBatchId != null) {
+    await tx
+      .update(schema.purchaseBatches)
+      .set({
+        remainingQty: sql`${schema.purchaseBatches.remainingQty} + ${row.qty ?? 1}`,
+      })
+      .where(eq(schema.purchaseBatches.id, row.purchaseBatchId));
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -75,6 +105,7 @@ export async function GET(request: NextRequest) {
       source: schema.sales.source,
       notes: schema.sales.notes,
       imageUrl: schema.sales.imageUrl,
+      orderNo: schema.sales.orderNo,
       inventoryRecordId: schema.sales.inventoryRecordId,
       categoryName: schema.categories.name,
       itemDisplayName: schema.items.name,
@@ -104,10 +135,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const list = Array.isArray(body) ? body : [body];
+  const isBatch = Array.isArray(body);
+  const list: unknown[] = Array.isArray(body) ? body : [body];
   if (list.length > 500) {
     return NextResponse.json({ error: "Maximum 500 records per request" }, { status: 400 });
   }
+
+  // 陣列送出 = 同一張訂單的多筆商品明細，共用一個訂單編號。
+  // 呼叫端可以自己帶 orderNo（例如補一筆到既有訂單），沒帶就由伺服器產生。
+  const sharedOrderNo = isBatch ? randomUUID() : null;
 
   const rawItems = list as Record<string, unknown>[];
   const itemIds = Array.from(
@@ -203,6 +239,9 @@ export async function POST(request: NextRequest) {
         batchId: item.batchId != null ? Number(item.batchId) : null,
         notes: item.notes ? String(item.notes).slice(0, 500) : null,
         imageUrl: item.imageUrl ? String(item.imageUrl).slice(0, 500) : null,
+        orderNo: item.orderNo
+          ? String(item.orderNo).slice(0, 64)
+          : sharedOrderNo,
       };
     });
   } catch (error) {
@@ -284,6 +323,7 @@ export async function POST(request: NextRequest) {
           batchId: v.batchId,
           notes: v.notes,
           imageUrl: v.imageUrl,
+          orderNo: v.orderNo,
           inventoryRecordId: v.inventoryRecordId,
           purchaseBatchId: v.purchaseBatchId,
         })
@@ -324,7 +364,40 @@ export async function DELETE(request: NextRequest) {
   const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
-  const id = Number(searchParams.get("id"));
+  const orderNo = searchParams.get("orderNo");
+  const idParam = searchParams.get("id");
+
+  // 刪整張訂單
+  if (orderNo && orderNo.trim()) {
+    const deletedCount = await db.transaction(async (tx) => {
+      const rows = await tx
+        .delete(schema.sales)
+        .where(
+          and(
+            eq(schema.sales.orderNo, orderNo.trim()),
+            eq(schema.sales.userId, userId)
+          )
+        )
+        .returning({
+          id: schema.sales.id,
+          inventoryRecordId: schema.sales.inventoryRecordId,
+          purchaseBatchId: schema.sales.purchaseBatchId,
+          qty: schema.sales.qty,
+        });
+
+      for (const row of rows) {
+        await restoreStock(tx, row);
+      }
+      return rows.length;
+    });
+
+    if (deletedCount === 0) {
+      return NextResponse.json({ error: "找不到這張訂單" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, deleted: deletedCount });
+  }
+
+  const id = Number(idParam);
   if (!id || Number.isNaN(id) || id <= 0) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
@@ -342,24 +415,7 @@ export async function DELETE(request: NextRequest) {
 
     if (rows.length === 0) return null;
 
-    if (rows[0].inventoryRecordId != null) {
-      await tx
-        .update(schema.inventoryRecords)
-        .set({
-          remainingQty: sql`${schema.inventoryRecords.remainingQty} + 1`,
-        })
-        .where(eq(schema.inventoryRecords.id, rows[0].inventoryRecordId));
-    }
-
-    if (rows[0].purchaseBatchId != null) {
-      await tx
-        .update(schema.purchaseBatches)
-        .set({
-          remainingQty: sql`${schema.purchaseBatches.remainingQty} + ${rows[0].qty ?? 1}`,
-        })
-        .where(eq(schema.purchaseBatches.id, rows[0].purchaseBatchId));
-    }
-
+    await restoreStock(tx, rows[0]);
     return rows[0];
   });
 

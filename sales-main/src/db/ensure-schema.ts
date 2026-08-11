@@ -64,6 +64,17 @@ async function runEnsureSchema() {
     );
   }
 
+  // 一張訂單放多個分類的商品：同一次送出的列共用同一個 order_no。
+  // 純新增欄位，既有資料一律 NULL（＝各自一張單筆訂單），不會被更動。
+  if (!hasColumn(salesColumns, "order_no")) {
+    await client.execute("ALTER TABLE sales ADD COLUMN order_no TEXT");
+  }
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS idx_sales_order_no
+    ON sales(order_no)
+  `);
+
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS user (
       id TEXT PRIMARY KEY,

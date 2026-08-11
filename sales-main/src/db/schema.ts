@@ -53,6 +53,8 @@ export const sales = sqliteTable("sales", {
   batchId: integer("batch_id").references(() => importBatches.id),
   notes: text("notes"),
   imageUrl: text("image_url"),
+  // 同一張訂單的多筆商品共用一個 order_no；NULL = 舊資料，自成一張單筆訂單
+  orderNo: text("order_no"),
   createdAt: text("created_at")
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),

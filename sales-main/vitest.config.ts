@@ -10,5 +10,7 @@ export default defineConfig({
     hookTimeout: 30000,
     reporters: ["verbose"],
     sequence: { concurrent: false },
+    // 整合測試共用同一個資料庫，平行跑會互相鎖住（SQLITE_BUSY）
+    fileParallelism: false,
   },
 });
