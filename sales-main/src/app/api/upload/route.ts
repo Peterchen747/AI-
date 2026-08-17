@@ -93,13 +93,15 @@ export async function POST(request: NextRequest) {
 
   try {
     if (storage.ok) {
+      // 私有儲存：圖片不公開，只有登入後透過 /api/images/... 才看得到。
       // 沒有靜態 token 時不要傳 token，讓 SDK 走 OIDC + BLOB_STORE_ID
-      const blob = await put(`sales/${filename}`, file, {
-        access: "public",
+      const pathname = `sales/${filename}`;
+      await put(pathname, file, {
+        access: "private",
         contentType: file.type,
         ...(storage.token ? { token: storage.token } : {}),
       });
-      return NextResponse.json({ url: blob.url });
+      return NextResponse.json({ url: `/api/images/${pathname}` });
     }
 
     // 本機開發：沒設定 Blob 時，寫進 public/uploads/sales/
